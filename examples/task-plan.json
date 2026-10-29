@@ -1,0 +1,104 @@
+{
+  "description": "합성 연습용 계획. paths는 쓰기 소유권이며 실제 프로젝트 경로와 검증 명령으로 교체한다. harness는 계획 검사기이며 스케줄러가 아니다.",
+  "tasks": [
+    {
+      "id": "requirements",
+      "role": "requirements",
+      "objective": "필수 수용 기준과 확인 질문을 정리한다.",
+      "inputs": ["AGENTS.md", "README.md", "과제 원문"],
+      "outputs": [".harness/plan/requirements.md"],
+      "acceptance": ["필수·선택 구분과 ID별 기대 동작, 경계 사례, 미확인 질문을 포함한다."],
+      "paths": [".harness/plan/requirements.md"],
+      "depends_on": [],
+      "verify": "리드가 과제 원문과 수용 기준을 대조한다."
+    },
+    {
+      "id": "explore",
+      "role": "explorer",
+      "objective": "기존 구조와 실행·검증 명령을 읽기 전용으로 조사한다.",
+      "inputs": ["AGENTS.md", "README.md", "기존 소스와 테스트"],
+      "outputs": [".harness/plan/exploration.md"],
+      "acceptance": ["관련 경로, 기준선 명령·종료 코드, 현재 오류와 미확인 사항을 기록한다."],
+      "paths": [".harness/plan/exploration.md"],
+      "depends_on": [],
+      "verify": "python3 -m harness --help"
+    },
+    {
+      "id": "design",
+      "role": "architect",
+      "objective": "기존 구조를 보존하는 최소 구현과 인터페이스를 확정한다.",
+      "inputs": [".harness/plan/requirements.md", ".harness/plan/exploration.md"],
+      "outputs": [".harness/plan/architecture.md"],
+      "acceptance": ["작업마다 입력·출력·수용 기준·경로·의존성·검증 방법을 정하고 공통 파일은 리드에게 남긴다."],
+      "paths": [".harness/plan/architecture.md"],
+      "depends_on": ["requirements", "explore"],
+      "verify": "python3 -m harness plan-check examples/task-plan.json"
+    },
+    {
+      "id": "web",
+      "role": "frontend",
+      "objective": "합성 업무 보드의 HTTP API와 핵심 화면 흐름을 구현한다.",
+      "inputs": [".harness/plan/architecture.md", "수용 기준"],
+      "outputs": ["harness/demo.py", "tests/test_demo.py"],
+      "acceptance": ["목록·추가·상태 변경·필터와 입력 오류의 HTTP 검사가 통과한다. 화면 수동 확인은 별도로 남긴다."],
+      "paths": ["harness/demo.py", "tests/test_demo.py"],
+      "depends_on": ["design"],
+      "verify": "python3 -m unittest discover -s tests -p test_demo.py -v"
+    },
+    {
+      "id": "data",
+      "role": "data",
+      "objective": "합성 판매 CSV의 정제·집계를 구현한다.",
+      "inputs": [".harness/plan/architecture.md", "examples/data/sales.csv", "examples/data/expected-clean.csv", "examples/data/expected-regions.csv"],
+      "outputs": ["harness/data.py", "tests/test_data.py"],
+      "acceptance": ["날짜·중복·결측·잘못된 금액과 0 분모 정책을 검증하며 기대 fixture와 집계가 일치한다."],
+      "paths": ["harness/data.py", "tests/test_data.py"],
+      "depends_on": ["design"],
+      "verify": "python3 -m unittest discover -s tests -p test_data.py -v"
+    },
+    {
+      "id": "repair",
+      "role": "core",
+      "objective": "합성 버그의 별도 solution을 작성하고 회귀를 검사한다.",
+      "inputs": [".harness/plan/architecture.md", "examples/bugfix/starter/tickets.py", "examples/bugfix/starter/test_tickets.py"],
+      "outputs": ["examples/bugfix/solution/"],
+      "acceptance": ["starter를 보존하고 마지막 항목 누락을 재현한 뒤 solution 회귀 검사를 통과한다."],
+      "paths": ["examples/bugfix/solution"],
+      "depends_on": ["design"],
+      "verify": "python3 -m unittest discover -s examples/bugfix/solution -v"
+    },
+    {
+      "id": "qa",
+      "role": "qa",
+      "objective": "통합된 기능을 수용 기준별로 실행하고 실패를 재현한다.",
+      "inputs": ["최종 구현", "수용 기준", "검증 명령"],
+      "outputs": [".harness/plan/qa.md"],
+      "acceptance": ["정확한 명령·종료 코드·기대와 실제·심각도·재현 근거를 기록한다. 구현 파일을 수정하지 않는다."],
+      "paths": [".harness/plan/qa.md"],
+      "depends_on": ["web", "data", "repair"],
+      "verify": "make check"
+    },
+    {
+      "id": "review",
+      "role": "reviewer",
+      "objective": "별도 새 문맥에서 실제 diff와 동작의 결함을 검토한다.",
+      "inputs": ["실제 diff", "수용 기준", "통합 코드"],
+      "outputs": [".harness/plan/review.md"],
+      "acceptance": ["발견마다 심각도·영향·위치·재현 근거를 포함하고 검토 범위·한계를 명시한다."],
+      "paths": [".harness/plan/review.md"],
+      "depends_on": ["web", "data", "repair"],
+      "verify": "git diff --check"
+    },
+    {
+      "id": "integrate",
+      "role": "lead",
+      "objective": "리드가 실제 diff를 읽고 통합 검사 후 로컬 전달을 준비한다.",
+      "inputs": [".harness/plan/qa.md", ".harness/plan/review.md", "최종 구현"],
+      "outputs": [".harness/plan/handoff.md"],
+      "acceptance": ["중대 결함 해결 뒤 리드가 검사를 실행하고 산출물·실행법·Git 상태·미확인 항목을 기록한다."],
+      "paths": [".harness/plan/handoff.md"],
+      "depends_on": ["qa", "review"],
+      "verify": "make check"
+    }
+  ]
+}
