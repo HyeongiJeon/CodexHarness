@@ -17,10 +17,14 @@ def main() -> int:
     config = sub.add_parser("configure", help="generate a bundle in a NEW directory; never edits user config")
     config.add_argument("destination", type=Path)
     config.add_argument("--mode", choices=("routed", "inherited"), default="inherited")
+    install = sub.add_parser("install-skills", help="copy project skills, preserving every existing skill and AGENTS.md")
+    install.add_argument("--project", type=Path, required=True)
+    install.add_argument("--skill", action="append", help="copy only this skill; repeat as needed (default all)")
     launch = sub.add_parser("launch", help="start supplied CLI with explicit role config paths")
     launch.add_argument("--project", type=Path, default=Path.cwd())
     launch.add_argument("--mode", choices=("routed", "inherited"), default="inherited")
     launch.add_argument("--model", help="explicit verified main model; omitted means inherit installed default")
+    launch.add_argument("--bundle", type=Path, help="explicit generated bundle directory instead of checked-in mode")
     launch.add_argument("--dry-run", action="store_true")
     task = sub.add_parser("plan-check", help="check dependency and file ownership contracts")
     task.add_argument("plan", type=Path)
@@ -34,6 +38,8 @@ def main() -> int:
     bench.add_argument("--routing", choices=("routed", "inherited"), default="inherited")
     bench.add_argument("--model", default="gpt-6.1-sol")
     bench.add_argument("--timeout", type=int, default=600)
+    recheck = sub.add_parser("benchmark-check", help="offline acceptance check of a generated synthetic benchmark project")
+    recheck.add_argument("project", type=Path)
     args = parser.parse_args()
     if args.command == "doctor":
         from .doctor import inspect
@@ -47,10 +53,13 @@ def main() -> int:
         print(role_text(args.name))
     elif args.command == "configure":
         print(render_config(args.destination, args.mode))
+    elif args.command == "install-skills":
+        from .install import install_skills
+        print(json.dumps(install_skills(args.project, args.skill), indent=2))
     elif args.command == "launch":
         if args.model and "astra" in args.model.lower():
             parser.error("Astra is prohibited")
-        bundle = ROOT / (".codex" if args.mode == "routed" else "configs/inherited")
+        bundle = args.bundle or ROOT / (".codex" if args.mode == "routed" else "configs/inherited")
         cmd = ["codex", "-C", str(args.project.resolve()), *launch_overrides(bundle)]
         if args.model:
             cmd += ["-m", args.model]
@@ -74,6 +83,13 @@ def main() -> int:
     elif args.command == "benchmark":
         from .benchmark import run
         return run(args.mode, args.routing, args.model, args.timeout)
+    elif args.command == "benchmark-check":
+        from .benchmark import evaluate
+        checks, passed, log = evaluate(args.project)
+        print(json.dumps(checks, indent=2))
+        if not passed:
+            print(log, file=sys.stderr)
+        return 0 if passed else 1
     return 0
 
 
