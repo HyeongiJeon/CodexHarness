@@ -66,7 +66,7 @@ python3 -m harness benchmark --mode smoke --routing inherited --timeout 180
 
 앞의 세 명령은 AI·네트워크가 필요 없다. 마지막은 제공 Codex를 실제 실행해 사용량을 소비한다. 공개 [측정 사실 JSON](../benchmarks/evidence.json), [실제 멀티 출력](../benchmarks/sample/TASK.md)과 SHA-256으로 보존된 파일을 확인할 수 있다. 세션 전문·도구 payload·인증정보는 공개하지 않았다. 실제 원시 증거는 준비 머신의 Git 제외 `.harness/runs/`에 남는다.
 
-최종 로컬 `make check`는 통과했다. 공개 저장소 push와 익명 HTTPS clone 검증은 최종 게시 단계에서 별도 기록한다. PR 정책이 없는 빈 공개 main에서 시작했고 단계별 로컬 커밋을 유지했다. 시험 환경에서는 push하지 않는다.
+최종 로컬 `make check`는 통과했다. 준비용 공개 저장소 `HyeongiJeon/CodexHarness`의 main에 `7c52ec0f07208a798007f70fddaabf36c648a0af`까지 push한 뒤, credential helper와 HTTP 추가 인증 헤더를 비운 HTTPS clone을 새 임시 디렉터리에 수행했다. clone exit 0, 같은 커밋 확인, **새 clone의 `make check` exit 0**, Git 작업 트리 clean을 확인했다. 원시 `.harness/`는 clone에 존재하지 않았다. 이후 변경은 이 게시·재현 사실을 기록하는 문서뿐이다. 최종 문서 커밋도 같은 공개 main에 게시한다. PR 정책이 없는 빈 공개 저장소에서 시작해 단계별 커밋을 유지했고 PR·별도 병합은 만들지 않았다. 시험 환경에서는 push하지 않는다.
 
 ## 남은 확인 사항
 
