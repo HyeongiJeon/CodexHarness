@@ -1,0 +1,3 @@
+# Local service checks
+
+Use only checks relevant to the endpoint being changed. Start the service with the repository command and confirm readiness with a bounded local HTTP request. Exercise a valid request and representative invalid input; inspect status, content type, and stable response shape. For mutations, inspect local persistence or read the resource back, and verify rejected requests leave no partial change. Use only synthetic/local identities for access checks and never print secrets. Report unavailable dependencies as blockers; do not silently replace required persistence with a mock.
