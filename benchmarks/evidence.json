@@ -1,0 +1,191 @@
+{
+  "cli_version": "0.163.0",
+  "records": [
+    {
+      "name": "inherited-smoke",
+      "private_run_directory": "20261029T214032662328Z-smoke",
+      "elapsed_seconds": 23.101,
+      "cli_exit_code": 0,
+      "requested_routing": "inherited",
+      "subagent_count": 2,
+      "parallel_observed": true,
+      "final_orchestration_predicate": true,
+      "runner_reported_checks": {
+        "requirements": true,
+        "explorer": true
+      },
+      "parent_observed_tokens": 100688,
+      "child_observed_tokens": 152053,
+      "observed_tokens_including_cached": 252741,
+      "children": [
+        {
+          "role": "explorer",
+          "model": "gpt-6.1-sol",
+          "effort": "high",
+          "started_utc": "2026-10-29T21:40:40.726Z",
+          "finished_utc": "2026-10-29T21:40:49.485Z",
+          "forked_from_id": null,
+          "parent_marker_seen_in_log": false
+        },
+        {
+          "role": "requirements",
+          "model": "gpt-6.1-sol",
+          "effort": "high",
+          "started_utc": "2026-10-29T21:40:38.280Z",
+          "finished_utc": "2026-10-29T21:40:50.294Z",
+          "forked_from_id": null,
+          "parent_marker_seen_in_log": false
+        }
+      ],
+      "fresh_context_requests": [
+        {
+          "agent_type": "requirements",
+          "fork_turns": "none"
+        },
+        {
+          "agent_type": "explorer",
+          "fork_turns": "none"
+        }
+      ],
+      "fix_retry_count": null,
+      "file_conflicts": "not automatically measured; no isolation or lock provided",
+      "measurement_scope": "one synthetic run, CLI wall time excluding final offline recheck; raw session contents are not published"
+    },
+    {
+      "name": "single",
+      "private_run_directory": "20261029T214100133174Z-single",
+      "elapsed_seconds": 91.709,
+      "cli_exit_code": 0,
+      "requested_routing": "routed",
+      "subagent_count": 0,
+      "parallel_observed": false,
+      "final_orchestration_predicate": true,
+      "runner_reported_checks": {
+        "acceptance_exit_code": 0,
+        "scenarios": {
+          "A": true,
+          "B": true,
+          "C": true
+        }
+      },
+      "parent_observed_tokens": 221725,
+      "child_observed_tokens": 0,
+      "observed_tokens_including_cached": 221725,
+      "children": [],
+      "fresh_context_requests": [],
+      "fix_retry_count": null,
+      "file_conflicts": "not automatically measured; no isolation or lock provided",
+      "final_offline_recheck": {
+        "acceptance_exit_code": 0,
+        "scenarios": {
+          "A": true,
+          "B": true,
+          "C": true
+        }
+      },
+      "final_acceptance_passed": true,
+      "measurement_scope": "one synthetic run, CLI wall time excluding final offline recheck; raw session contents are not published"
+    },
+    {
+      "name": "multi",
+      "private_run_directory": "20261029T214308007919Z-multi",
+      "elapsed_seconds": 207.223,
+      "cli_exit_code": 0,
+      "requested_routing": "routed",
+      "subagent_count": 4,
+      "parallel_observed": true,
+      "final_orchestration_predicate": true,
+      "runner_reported_checks": {
+        "acceptance_exit_code": 0,
+        "scenarios": {
+          "A": false,
+          "B": true,
+          "C": true
+        }
+      },
+      "parent_observed_tokens": 686786,
+      "child_observed_tokens": 657939,
+      "observed_tokens_including_cached": 1344725,
+      "children": [
+        {
+          "role": "frontend",
+          "model": "gpt-6.1-sol",
+          "effort": "medium",
+          "started_utc": "2026-10-29T21:43:20.044Z",
+          "finished_utc": "2026-10-29T21:44:01.633Z",
+          "forked_from_id": null,
+          "parent_marker_seen_in_log": false
+        },
+        {
+          "role": "core",
+          "model": "gpt-6.1-sol",
+          "effort": "high",
+          "started_utc": "2026-10-29T21:43:26.061Z",
+          "finished_utc": "2026-10-29T21:43:51.352Z",
+          "forked_from_id": null,
+          "parent_marker_seen_in_log": false
+        },
+        {
+          "role": "qa",
+          "model": "gpt-5.6-terra",
+          "effort": "high",
+          "started_utc": "2026-10-29T21:44:14.371Z",
+          "finished_utc": "2026-10-29T21:45:34.789Z",
+          "forked_from_id": null,
+          "parent_marker_seen_in_log": false
+        },
+        {
+          "role": "data",
+          "model": "gpt-5.6-terra",
+          "effort": "high",
+          "started_utc": "2026-10-29T21:43:23.197Z",
+          "finished_utc": "2026-10-29T21:46:18.829Z",
+          "forked_from_id": null,
+          "parent_marker_seen_in_log": false
+        }
+      ],
+      "fresh_context_requests": [
+        {
+          "agent_type": "frontend",
+          "fork_turns": "none"
+        },
+        {
+          "agent_type": "data",
+          "fork_turns": "none"
+        },
+        {
+          "agent_type": "core",
+          "fork_turns": "none"
+        },
+        {
+          "agent_type": "qa",
+          "fork_turns": "none"
+        }
+      ],
+      "fix_retry_count": null,
+      "file_conflicts": "not automatically measured; no isolation or lock provided",
+      "final_offline_recheck": {
+        "acceptance_exit_code": 0,
+        "scenarios": {
+          "A": true,
+          "B": true,
+          "C": true
+        }
+      },
+      "final_acceptance_passed": true,
+      "measurement_scope": "one synthetic run, CLI wall time excluding final offline recheck; raw session contents are not published"
+    }
+  ],
+  "sample_sha256": {
+    "TASK.md": "e6aeab994acdfc1e0bd4b90122d87a83b115e3f6f76cbda53bb939586a3c4f84",
+    "repair/tickets.py": "ced47130f0213e83eeed7d2e94b9fde3e72713a8ac01a56ff68b971ba3ec6a12",
+    "web/server.py": "6a4c50a6ded909b7bfa6a1b18edcbad9658d5139305b0bbebaecf0c4995883d3",
+    "analysis/report.py": "15a2fe88877c49e64865b403ac12d792965903546573df50bd014eb3a4586076"
+  },
+  "notes": [
+    "Original private summaries are preserved unchanged. Final predicates/rechecks were computed with the committed evaluator.",
+    "The multi runner loaded an older text regex that misreported scenario A amid HTTP logging; structured final offline results replace that interpretation, not the original record.",
+    "A previous multi pilot was interrupted by usage limit and is excluded from speed comparison.",
+    "Token counts include cached tokens; no billed price or statistically meaningful speedup is inferred."
+  ]
+}
