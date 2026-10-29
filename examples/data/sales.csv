@@ -1,0 +1,10 @@
+transaction_id,date,region,units,revenue
+TX-101,2026-10-01,North,2,25.50
+TX-102,2026-10-01,South,1,10.00
+TX-103,2026-10-02,North,1,12.25
+TX-104,2026-10-02,North,1,8.25
+TX-104,2026-10-02,North,9,999.99
+TX-105,2026-10-03,West,,30.00
+TX-106,not-a-date,South,3,21.00
+TX-107,2026-10-04,South,two,20.00
+TX-108,2026-10-04,South,0,0.00
