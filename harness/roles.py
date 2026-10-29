@@ -63,6 +63,9 @@ def launch_overrides(bundle: Path) -> list[str]:
     import tomllib
     conf = tomllib.loads((bundle / "config.toml").read_text())
     result = []
+    for key in ("model", "model_reasoning_effort"):
+        if key in conf:
+            result += ["-c", f"{key}={json.dumps(conf[key])}"]
     for name, value in conf.get("agents", {}).items():
         if isinstance(value, dict):
             for key in ("description", "config_file"):

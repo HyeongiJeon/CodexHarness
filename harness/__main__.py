@@ -24,6 +24,8 @@ def main() -> int:
     launch.add_argument("--dry-run", action="store_true")
     task = sub.add_parser("plan-check", help="check dependency and file ownership contracts")
     task.add_argument("plan", type=Path)
+    data = sub.add_parser("data", help="clean a local sales-schema CSV and print exact aggregates/issues")
+    data.add_argument("input", type=Path)
     demo = sub.add_parser("demo", help="synthetic local web/data practice application")
     demo.add_argument("--port", type=int, default=8765)
     demo.add_argument("--host", default="127.0.0.1")
@@ -64,6 +66,11 @@ def main() -> int:
     elif args.command == "demo":
         from .demo import serve
         serve(args.host, args.port)
+    elif args.command == "data":
+        from dataclasses import asdict
+        from .data import clean_sales_csv, aggregate_by_region
+        result = clean_sales_csv(args.input.read_text(encoding="utf-8-sig"))
+        print(json.dumps({"accepted": len(result.rows), "issues": [asdict(x) for x in result.issues], "regions": aggregate_by_region(result.rows)}, indent=2, ensure_ascii=False))
     elif args.command == "benchmark":
         from .benchmark import run
         return run(args.mode, args.routing, args.model, args.timeout)

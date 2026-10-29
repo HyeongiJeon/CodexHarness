@@ -16,8 +16,21 @@ def overlaps(a: str, b: str) -> bool:
 
 
 def validate_plan(plan: dict) -> list[str]:
+    if not isinstance(plan, dict):
+        return ["plan must be an object"]
     errors = []
     tasks = plan.get("tasks", [])
+    if not isinstance(tasks, list) or any(not isinstance(t, dict) for t in tasks):
+        return ["tasks must be a list of objects"]
+    for task in tasks:
+        if not isinstance(task.get("id"), str) or not task["id"]:
+            errors.append("each task needs a nonempty string id")
+        for key in ("paths", "depends_on"):
+            value = task.get(key)
+            if not isinstance(value, list) or any(not isinstance(x, str) for x in value):
+                errors.append(f"{task.get('id')}: {key} must be a list of strings")
+    if errors:
+        return errors
     ids = [t.get("id") for t in tasks]
     if not tasks:
         return ["plan has no tasks"]
@@ -52,6 +65,10 @@ def validate_plan(plan: dict) -> list[str]:
                 continue
             for a in left.get("paths", []):
                 for b in right.get("paths", []):
-                    if overlaps(a.rstrip("/"), b.rstrip("/")):
+                    try:
+                        conflict = overlaps(normalize(a), normalize(b))
+                    except ValueError:
+                        continue
+                    if conflict:
                         errors.append(f"parallel path conflict: {left.get('id')} / {right.get('id')}: {a} <> {b}")
     return sorted(set(errors))

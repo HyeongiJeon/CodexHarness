@@ -282,6 +282,7 @@ def create_server(host: str = "127.0.0.1", port: int = 8765) -> ThreadingHTTPSer
                 task = board.update(int(match.group(1)), self._body())
             except ValueError as exc:
                 self._json(400, {"error": str(exc)})
+                return
             if task is None:
                 self._json(404, {"error": "task not found"})
             else:

@@ -1,6 +1,4 @@
 # Generated without authority, authentication, or trust changes.
-model = "gpt-6.1-sol"
-model_reasoning_effort = "high"
 
 [agents]
 enabled = true

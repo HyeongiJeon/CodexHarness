@@ -11,7 +11,7 @@ import csv
 import io
 from dataclasses import dataclass
 from datetime import date
-from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP, localcontext
 from typing import Iterable
 
 
@@ -73,6 +73,8 @@ def clean_sales_csv(source: str) -> CleanResult:
             continue
         try:
             parsed_date = date.fromisoformat(values["date"])
+            if parsed_date.isoformat() != values["date"]:
+                raise ValueError("noncanonical date")
         except ValueError:
             issues.append(DataIssue(row_number, "invalid_date", "date must use YYYY-MM-DD"))
             continue
@@ -85,6 +87,9 @@ def clean_sales_csv(source: str) -> CleanResult:
                 raise ValueError
             if revenue.as_tuple().exponent < -2:
                 raise InvalidOperation
+            # Reject values outside this small helper's supported Decimal context
+            # as row issues; never let malformed/extreme input abort the import.
+            formatted_revenue = format(revenue.quantize(CENT), ".2f")
         except (ValueError, InvalidOperation):
             issues.append(DataIssue(row_number, "invalid_number", "units must be a non-negative integer and revenue non-negative currency with at most two decimals"))
             continue
@@ -94,7 +99,7 @@ def clean_sales_csv(source: str) -> CleanResult:
             "date": parsed_date.isoformat(),
             "region": values["region"],
             "units": str(units),
-            "revenue": format(revenue.quantize(CENT), ".2f"),
+            "revenue": formatted_revenue,
         })
     return CleanResult(tuple(rows), tuple(issues))
 
@@ -106,11 +111,17 @@ def aggregate_by_region(rows: Iterable[dict[str, str]]) -> list[dict[str, str]]:
     for row in rows:
         region = row["region"]
         units, revenue = totals.get(region, (0, Decimal("0.00")))
-        totals[region] = (units + int(row["units"]), revenue + Decimal(row["revenue"]))
+        amount = Decimal(row["revenue"])
+        with localcontext() as context:
+            context.prec = max(28, len(revenue.as_tuple().digits), len(amount.as_tuple().digits)) + 2
+            total = revenue + amount
+        totals[region] = (units + int(row["units"]), total)
     result = []
     for region in sorted(totals):
         units, revenue = totals[region]
-        per_unit = (revenue / units).quantize(CENT, rounding=ROUND_HALF_UP) if units else None
+        with localcontext() as context:
+            context.prec = max(28, len(revenue.as_tuple().digits) + len(str(units)) + 4)
+            per_unit = (revenue / units).quantize(CENT, rounding=ROUND_HALF_UP) if units else None
         result.append({
             "region": region,
             "units": str(units),

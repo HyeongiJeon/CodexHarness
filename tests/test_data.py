@@ -30,6 +30,20 @@ class SalesDataTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "expected columns"):
             clean_sales_csv("transaction_id,date,region,units\n")
 
+    def test_noncanonical_dates_and_extreme_currency_are_row_issues(self) -> None:
+        header = "transaction_id,date,region,units,revenue\n"
+        result = clean_sales_csv(header + "a,20260101,East,1,1\nb,2026-W01-1,East,1,1\nc,2026-01-01,East,1," + "9" * 37 + "\nd,2026-01-01,East,1,0.10\n")
+        self.assertEqual([x.code for x in result.issues], ["invalid_date", "invalid_date", "invalid_number"])
+        self.assertEqual(result.rows[0]["revenue"], "0.10")
+
+    def test_aggregation_preserves_large_accepted_currency(self) -> None:
+        source = "transaction_id,date,region,units,revenue\na,2026-01-01,East,1,99999999999999999999999999.99\nb,2026-01-01,East,1,99999999999999999999999999.99\n"
+        result = clean_sales_csv(source)
+        self.assertEqual(result.issues, ())
+        totals = aggregate_by_region(result.rows)[0]
+        self.assertEqual(totals["revenue"], "199999999999999999999999999.98")
+        self.assertEqual(totals["revenue_per_unit"], "99999999999999999999999999.99")
+
     def test_extra_columns_and_zero_unit_group_are_handled_explicitly(self) -> None:
         source = "transaction_id,date,region,units,revenue\nA,2026-01-01,Zero,0,0.00\nB,2026-01-01,Other,1,2.00,unexpected\n"
         result = clean_sales_csv(source)

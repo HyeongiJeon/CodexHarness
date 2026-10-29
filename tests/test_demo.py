@@ -81,6 +81,15 @@ class TaskBoardHTTPTests(unittest.TestCase):
         self.assertEqual(status, 404)
         self.assertEqual(payload["error"], "task not found")
 
+    def test_invalid_patch_does_not_raise_server_error(self) -> None:
+        errors = []
+        self.server.handle_error = lambda *args: errors.append(args)
+        status, payload, _ = self.request("/api/tasks/1", "PATCH", {"status": "blocked"})
+        self.assertEqual(status, 400)
+        self.assertIn("status", payload["error"])
+        self.assertEqual(self.request("/api/tasks/1", "PATCH", {"status": "done"})[0], 200)
+        self.assertEqual(errors, [])
+
 
 if __name__ == "__main__":
     unittest.main()
