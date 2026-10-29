@@ -1,0 +1,52 @@
+# Generated without authority, authentication, or trust changes.
+model = "gpt-6.1-sol"
+model_reasoning_effort = "high"
+
+[agents]
+enabled = true
+max_concurrent_threads_per_session = 4
+max_depth = 1
+
+[features]
+browser_use = false
+computer_use = false
+
+[agents.lead]
+description = "Lead Engineer / Orchestrator"
+config_file = "agents/lead.toml"
+
+[agents.requirements]
+description = "Requirements Specialist"
+config_file = "agents/requirements.toml"
+
+[agents.architect]
+description = "Architect Specialist"
+config_file = "agents/architect.toml"
+
+[agents.explorer]
+description = "Repository Explorer"
+config_file = "agents/explorer.toml"
+
+[agents.core]
+description = "Core Implementer"
+config_file = "agents/core.toml"
+
+[agents.frontend]
+description = "Frontend / UX Specialist"
+config_file = "agents/frontend.toml"
+
+[agents.data]
+description = "Data Specialist"
+config_file = "agents/data.toml"
+
+[agents.qa]
+description = "QA / Test Specialist"
+config_file = "agents/qa.toml"
+
+[agents.reviewer]
+description = "Critical Reviewer"
+config_file = "agents/reviewer.toml"
+
+[agents.docs]
+description = "Documentation Specialist"
+config_file = "agents/docs.toml"

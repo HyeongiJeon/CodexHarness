@@ -1,0 +1,9 @@
+[project]
+name = "codex-hackathon-harness"
+version = "0.1.0"
+description = "Local, evidence-driven Codex multi-agent practice harness"
+requires-python = ">=3.11"
+dependencies = []
+
+[tool.harness]
+entrypoint = "python3 -m harness"
