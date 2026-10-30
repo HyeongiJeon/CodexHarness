@@ -24,6 +24,8 @@
 
 ## MCP·플러그인: 기본 사용 안 함
 
+대용량·문서 강화는 sqlite3, hashlib, zipfile, XML, subprocess 등 표준 모듈을 사용한다. DOCX/XLSX 파서는 원본 코드로 작성했으며 외부 라이브러리를 복사하지 않았다. 선택 PDF 도구 `pdftotext`는 이 환경의 Poppler 실행 파일을 호출하며 배포물에 포함하지 않는다. 설치된 `/usr/share/doc/poppler-utils/copyright`에서 Poppler core의 GPL-2 또는 GPL-3 및 기여 부분 GPL-2+ 고지를 확인했다. 재배포할 때는 실제 배포물의 해당 고지를 확인해야 한다. 없으면 PDF unsupported를 보고하고 설치·인증 우회를 하지 않는다. [Poppler 공식 사이트](https://poppler.freedesktop.org/)가 상위 프로젝트다.
+
 기본 작업에는 MCP·플러그인 설치나 인증이 필요 없다. 역할 TOML은 모델·지침을 정의하며 외부 계정 권한을 부여하지 않는다. 자식이 외부 도구를 사용할 수 있는지도 실제 제공 도구와 부모 세션 설정으로 확인한다. 시험의 외부 전송 금지가 우선하므로 과제 코드·입력·로그를 문서 검색 서비스로 보내지 않는다.
 
 | 선택 통합 | 기본 상태 | 사용을 검토하기 전에 확인할 사항 | 사용할 수 없을 때 |

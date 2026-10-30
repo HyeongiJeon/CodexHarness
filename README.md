@@ -29,7 +29,7 @@ flowchart LR
 | `AGENTS.md` | 리드 운영 원칙·과제 우선·시험 제한 |
 | `.codex/config.toml`, `.codex/agents/` | 역할별 모델·추론 강도, 최대 4개 설정값·깊이 1 |
 | `configs/inherited/` | 역할 모델·강도를 고정하지 않는 호환 번들 |
-| `.agents/skills/` | 조건별 17개 Skill·필요할 때만 읽는 references |
+| `.agents/skills/` | 조건별 20개 Skill·필요할 때만 읽는 references |
 | `harness/` | doctor·명시적 역할 실행기·계획 검사·안전한 Skill 복사·CSV·HTTP 예제·실제 benchmark |
 | `examples/`, `tests/`, `benchmarks/` | 합성 입력·의도적 결함·회귀 검사·재현 가능한 측정 결과 |
 | `.harness/` | 원시 실행 증거의 로컬 보관; Git 제외 |
@@ -48,6 +48,7 @@ flowchart LR
 | qa | `gpt-5.6-terra` | high | 실제 재현·테스트·회귀 |
 | reviewer | `gpt-6.1-sol` | high | 새 문맥의 독립 결함 검토 |
 | docs | `gpt-6-luna` | medium | 사실 기반 결정·사용법·증거 |
+| synthesizer | `gpt-6.1-sol` | high | 근거팩 종합·상충·조건부 결론 |
 
 이 ID들은 설치 환경의 모델 메타데이터에서 확인했습니다. Sol 6.1·Luna 6·Terra 5.6의 실제 역할 라우팅도 실행 증거로 확인했습니다. 모든 역할을 항상 실행하지 않습니다. 작은 수정은 리드가 처리하고, 독립 작업이 충분할 때만 병렬화합니다. `gpt-5.6-terra`와 `gpt-6.1-terra`는 다른 모델입니다. `gpt-6-sol`은 로컬 카탈로그에서 확인했으나 이 benchmark의 실행 모델은 아닙니다. Astra는 사용하지 않습니다.
 
@@ -70,7 +71,7 @@ python3 -m harness launch --project /path/to/assignment --mode inherited --model
 
 ## Skill과 도구
 
-[17개 Skill의 전체 목록과 자동 선택 조건](docs/skills.md)을 제공합니다. 공통 개발 7개, 유형별 6개, 시험 운영 4개이며 `name`·`description`으로 후보를 발견하고 본문과 references를 필요한 때만 읽습니다. 모든 Skill을 한꺼번에 로딩하지 않습니다. 이 세션에서 실제 자동 발견 목록에 표시됐고, smoke의 requirements 에이전트가 선택한 Skill을 읽었습니다.
+[20개 Skill의 전체 목록과 자동 선택 조건](docs/skills.md)을 제공합니다. 기존 17개에 문서 검색·근거 종합·출처 검증 3개를 추가했으며 `name`·`description`으로 후보를 발견하고 본문과 references를 필요한 때만 읽습니다. 모든 Skill을 한꺼번에 로딩하지 않습니다. 기존 smoke에서는 requirements 에이전트가 선택한 Skill을 실제 읽었습니다. 새 Skill·역할은 새 세션에서 발견을 확인합니다.
 
 기본 도구는 제공 Codex·터미널·Git·Python 표준 라이브러리입니다. CSV 스키마, 결측·중복·날짜·금액 검증, Decimal 집계·0 분모 처리, 로컬 JSON 오류 처리와 HTTP 회귀 검사를 제공합니다. MCP·플러그인은 기본으로 설치하거나 설정하지 않습니다. [도구·네트워크·인증·라이선스 범위와 대안](docs/tools-and-licenses.md)을 확인하세요.
 
@@ -98,7 +99,22 @@ python3 -m harness benchmark --mode multi --routing routed --timeout 480
 
 검증 결과와 한계는 [측정 보고서](docs/benchmark-results.md), 결함과 수정은 [초기 독립 리뷰](docs/reviews/initial.md)·[최종 감사](docs/reviews/final.md)에 기록합니다. 작은 합성 과제 한 번의 결과를 180분 실제 과제 성능으로 일반화하지 않습니다.
 
-실측: **단일 91.7초 / 멀티 207.2초**, 두 구성 모두 A/B/C 통과입니다. 이 작은 과제에서 멀티가 더 느렸습니다. 실제 새 자식·병렬 실행·역할별 모델과 상속 구성을 확인했고, `make check`는 동작 검사 33개와 설정·계획 검사를 통과했습니다. 게시 후 익명 HTTPS clone에서도 같은 검사가 통과했습니다. 화면 수동 검증과 시험 당일 기능·모델 접근성은 미확인입니다.
+초기 하네스 실측: **단일 91.7초 / 멀티 207.2초**, 두 구성 모두 A/B/C 통과입니다. 이 작은 과제에서 멀티가 더 느렸습니다. 초기 33개 검사·익명 clone 검증 기록은 위 보고서에 보존했습니다. 데이터·문서 강화 후의 현재 검사와 측정은 아래 보고서에 구분합니다. 화면 수동 검증과 시험 당일 기능·모델 접근성은 미확인입니다.
+
+## 대용량 데이터·다중 문서
+
+기존 작은 예제와 별도로 스트리밍 CSV/JSONL·디스크 JOIN/중복 제거, 혼합 문서 추출·SQLite 검색, 크기 제한 Evidence Pack, 원문 해시/위치/인용 검증과 사실·충돌·근거 부족 판정을 제공합니다. 원문 전체를 모델에 넣거나 외부 업로드하지 않습니다.
+
+```sh
+python3 -m harness resources
+python3 -m harness data profile examples/intelligence/data-a.csv
+python3 -m harness corpus index examples/intelligence/documents --db .harness/corpus.db
+python3 -m harness corpus evidence-pack --db .harness/corpus.db --query FACT --max-chars 10000 --output .harness/pack.json
+python3 -m harness evidence verify .harness/pack.json
+python3 -m harness evidence synthesize .harness/pack.json --entity LOT-42 --as-of 2026-10-30
+```
+
+100만 행 JOIN은 **26.36초·피크 RSS 34.6MiB**, 120문서의 핵심 근거 5개는 **7,066자** 팩으로 보존했습니다. 일반 자연어의 자동 의미 이해나 모든 자료의 정확도를 보장하는 수치는 아닙니다. 일반 문서 해석은 제공 Codex와 독립 원본 감사를 이용하며 결정적 종합 엔진은 명시적 FACT 원문 레코드를 처리합니다. [실행법·지원 범위](docs/intelligence.md), [정확한 벤치마크 조건·한계](docs/intelligence-results.md), [독립 감사](docs/reviews/intelligence.md)를 확인하세요.
 
 ## 시험 당일
 
