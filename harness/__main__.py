@@ -51,7 +51,7 @@ def main() -> int:
         p = corp.add_parser(command)
         p.add_argument("--db", type=Path, required=True)
         p.add_argument("--query", required=True, action="append" if command == "evidence-pack" else "store")
-        p.add_argument("--mode", choices=("literal", "regex", "fts"), default="literal")
+        p.add_argument("--mode", choices=("literal", "identifier", "regex", "fts"), default="literal")
         for name in ("status", "date-from", "date-to", "entity"):
             p.add_argument('--' + name)
         p.add_argument("--max-chars", type=int, default=16000 if command == "evidence-pack" else 600)
@@ -69,7 +69,17 @@ def main() -> int:
     sy.add_argument("--entity", required=True)
     sy.add_argument("--as-of", required=True)
     sy.add_argument("--attribute")
+    cp = es.add_parser('compare')
+    cp.add_argument('pack',type=Path)
+    cp.add_argument('--calculation',type=Path,required=True)
+    cp.add_argument('--entity',required=True)
+    cp.add_argument('--attribute',required=True)
+    cp.add_argument('--as-of',required=True)
+    cp.add_argument('--unit',required=True)
     sub.add_parser("resources", help="read-only CPU/memory/disk observations")
+    ib = sub.add_parser('intelligence-benchmark', help='local synthetic 100k/1m rows and 120-document benchmark; no AI calls')
+    ib.add_argument('--output', type=Path, default=ROOT/'.harness/intelligence')
+    ib.add_argument('--rows', default='100000,1000000')
     demo = sub.add_parser("demo", help="synthetic local web/data practice application")
     demo.add_argument("--port", type=int, default=8765)
     demo.add_argument("--host", default="127.0.0.1")
@@ -133,15 +143,27 @@ def main() -> int:
             if 'value' not in config:
                 parser.error('data aggregate requires --value or config.value')
             config.setdefault('group_by', [])
+            if config.get('join',{}).get('path'):
+                config['join']['path'] = str(Path(config['join']['path']).resolve())
             report = aggregate_files(args.files, **config)
             report['calculation_contract'] = {'paths': [str(p.resolve()) for p in args.files], 'config': config}
         else:
+            if args.files:
+                parser.error('multiple files require data aggregate; legacy data FILE accepts one file')
             result = clean_sales_csv(args.input.read_text(encoding="utf-8-sig"))
             report = {"accepted": len(result.rows), "issues": [asdict(x) for x in result.issues], "regions": aggregate_by_region(result.rows)}
         print(json.dumps(report, indent=2, ensure_ascii=False))
     elif args.command == 'resources':
         from .sources import resources
         print(json.dumps(resources(), indent=2))
+    elif args.command == 'intelligence-benchmark':
+        from .intelligence_benchmark import run
+        counts = [int(n) for n in args.rows.split(',')]
+        if not counts or min(counts) < 100 or max(counts) > 10_000_000:
+            parser.error('benchmark rows must be 100..10000000')
+        report = run(args.output, counts)
+        print(json.dumps(report, ensure_ascii=False, indent=2))
+        return 0 if report['passed'] else 1
     elif args.command == 'corpus':
         from .corpus import inventory, index_corpus, search
         if args.corpus_command == 'inventory':
@@ -166,9 +188,14 @@ def main() -> int:
                     args.output.write_text(serialized(report), encoding='utf-8')
         print(json.dumps(report, indent=2, ensure_ascii=False))
     elif args.command == 'evidence':
-        from .evidence import verify, synthesize
+        from .evidence import verify, synthesize, compare_calculation
         pack = load_json(args.pack)
-        report = verify(pack) if args.evidence_command == 'verify' else synthesize(pack, entity=args.entity, as_of=args.as_of, attribute=args.attribute)
+        if args.evidence_command == 'verify':
+            report = verify(pack)
+        elif args.evidence_command == 'compare':
+            report = compare_calculation(pack, load_json(args.calculation),entity=args.entity,attribute=args.attribute,as_of=args.as_of,unit=args.unit)
+        else:
+            report = synthesize(pack, entity=args.entity, as_of=args.as_of, attribute=args.attribute)
         print(json.dumps(report, indent=2, ensure_ascii=False))
         return 0 if report['status'] in {'verified', 'supported'} else 1
     elif args.command == "benchmark":

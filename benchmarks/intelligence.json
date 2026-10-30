@@ -1,0 +1,379 @@
+{
+  "resources": {
+    "cpu_count": 16,
+    "disk_free_bytes": 693013024768,
+    "disk_total_bytes": 982240026624,
+    "hard_limits_known": false,
+    "cpu_affinity_count": 16,
+    "host_available_memory_bytes": 27255406592,
+    "cgroup_memory_bytes": null,
+    "cgroup_cpu_quota": null,
+    "address_space_rlimit": [
+      -1,
+      -1
+    ],
+    "limitations": [
+      "Host observations may exceed container limits; unavailable cgroup limits are unknown.",
+      "SQLite disk spill uses an 8 MiB cache; no host setting is changed."
+    ]
+  },
+  "structured": [
+    {
+      "kind": "aggregate",
+      "elapsed_seconds": 2.545747,
+      "peak_rss_kib": 26552,
+      "checks": {
+        "valid_count": true,
+        "excluded_count": true,
+        "reasons": true,
+        "sum": true,
+        "groups": true,
+        "join_no_multiplication": true
+      },
+      "passed": true,
+      "result": {
+        "rows_seen": 100000,
+        "valid": 97166,
+        "excluded": 2834,
+        "exclusion_reasons": {
+          "duplicate_id": 882,
+          "invalid_number": 961,
+          "missing_value": 991
+        },
+        "totals": {
+          "count": 97166,
+          "sum": "48099.75",
+          "min": "0.00",
+          "max": "0.99",
+          "mean": "0.49502655249778729185105901241174896568758619270115",
+          "mean_fraction": {
+            "numerator": "48099.75",
+            "denominator": 97166
+          },
+          "mean_precision": 50
+        },
+        "groups": [
+          {
+            "key": {
+              "category": "C0"
+            },
+            "count": 19431,
+            "sum": "9229.55",
+            "min": "0.00",
+            "max": "0.95",
+            "mean": "0.47499099377283721887705213318923369872883536616746",
+            "mean_fraction": {
+              "numerator": "9229.55",
+              "denominator": 19431
+            },
+            "mean_precision": 50
+          },
+          {
+            "key": {
+              "category": "C1"
+            },
+            "count": 19435,
+            "sum": "9426.60",
+            "min": "0.01",
+            "max": "0.96",
+            "mean": "0.48503215847697453048623617185490095189091844610239",
+            "mean_fraction": {
+              "numerator": "9426.60",
+              "denominator": 19435
+            },
+            "mean_precision": 50
+          },
+          {
+            "key": {
+              "category": "C2"
+            },
+            "count": 19434,
+            "sum": "9621.58",
+            "min": "0.02",
+            "max": "0.97",
+            "mean": "0.49509004836883811876093444478748584954203972419471",
+            "mean_fraction": {
+              "numerator": "9621.58",
+              "denominator": 19434
+            },
+            "mean_precision": 50
+          },
+          {
+            "key": {
+              "category": "C3"
+            },
+            "count": 19432,
+            "sum": "9813.41",
+            "min": "0.03",
+            "max": "0.98",
+            "mean": "0.50501286537669822972416632358995471387402223137093",
+            "mean_fraction": {
+              "numerator": "9813.41",
+              "denominator": 19432
+            },
+            "mean_precision": 50
+          },
+          {
+            "key": {
+              "category": "C4"
+            },
+            "count": 19434,
+            "sum": "10008.61",
+            "min": "0.04",
+            "max": "0.99",
+            "mean": "0.51500514562107646392919625398785633425954512709684",
+            "mean_fraction": {
+              "numerator": "10008.61",
+              "denominator": 19434
+            },
+            "mean_precision": 50
+          }
+        ],
+        "spill": {
+          "engine": "sqlite",
+          "disk_backed": true,
+          "database_bytes": 1081344,
+          "cache_limit_kib": 8192,
+          "temporary_database_removed": true
+        }
+      }
+    },
+    {
+      "kind": "aggregate",
+      "elapsed_seconds": 26.357074,
+      "peak_rss_kib": 35476,
+      "checks": {
+        "valid_count": true,
+        "excluded_count": true,
+        "reasons": true,
+        "sum": true,
+        "groups": true,
+        "join_no_multiplication": true
+      },
+      "passed": true,
+      "result": {
+        "rows_seen": 1000000,
+        "valid": 971669,
+        "excluded": 28331,
+        "exclusion_reasons": {
+          "duplicate_id": 8818,
+          "invalid_number": 9612,
+          "missing_value": 9901
+        },
+        "totals": {
+          "count": 971669,
+          "sum": "480979.14",
+          "min": "0.00",
+          "max": "0.99",
+          "mean": "0.49500307203378928421098131153715925896575891584480",
+          "mean_fraction": {
+            "numerator": "480979.14",
+            "denominator": 971669
+          },
+          "mean_precision": 50
+        },
+        "groups": [
+          {
+            "key": {
+              "category": "C0"
+            },
+            "count": 194333,
+            "sum": "92309.80",
+            "min": "0.00",
+            "max": "0.95",
+            "mean": "0.47500836193544071259127374146439359244183952288083",
+            "mean_fraction": {
+              "numerator": "92309.80",
+              "denominator": 194333
+            },
+            "mean_precision": 50
+          },
+          {
+            "key": {
+              "category": "C1"
+            },
+            "count": 194334,
+            "sum": "94252.19",
+            "min": "0.01",
+            "max": "0.96",
+            "mean": "0.48500102915598917327899389710498420245556619016744",
+            "mean_fraction": {
+              "numerator": "94252.19",
+              "denominator": 194334
+            },
+            "mean_precision": 50
+          },
+          {
+            "key": {
+              "category": "C2"
+            },
+            "count": 194335,
+            "sum": "96194.80",
+            "min": "0.02",
+            "max": "0.97",
+            "mean": "0.49499472560269637481668253273985643347827205598580",
+            "mean_fraction": {
+              "numerator": "96194.80",
+              "denominator": 194335
+            },
+            "mean_precision": 50
+          },
+          {
+            "key": {
+              "category": "C3"
+            },
+            "count": 194333,
+            "sum": "98139.14",
+            "min": "0.03",
+            "max": "0.98",
+            "mean": "0.50500501716126442755476424487863615546510371372850",
+            "mean_fraction": {
+              "numerator": "98139.14",
+              "denominator": 194333
+            },
+            "mean_precision": 50
+          },
+          {
+            "key": {
+              "category": "C4"
+            },
+            "count": 194334,
+            "sum": "100083.21",
+            "min": "0.04",
+            "max": "0.99",
+            "mean": "0.51500617493593503967396338262990521473339714100466",
+            "mean_fraction": {
+              "numerator": "100083.21",
+              "denominator": 194334
+            },
+            "mean_precision": 50
+          }
+        ],
+        "spill": {
+          "engine": "sqlite",
+          "disk_backed": true,
+          "database_bytes": 11694080,
+          "cache_limit_kib": 8192,
+          "temporary_database_removed": true
+        }
+      }
+    }
+  ],
+  "model_calls": 0,
+  "model_tokens": 0,
+  "memory_metric": "Linux isolated Python process peak ru_maxrss KiB; includes interpreter, not a hard cap",
+  "baseline": [
+    {
+      "kind": "legacy",
+      "elapsed_seconds": 0.525786,
+      "peak_rss_kib": 87836,
+      "checks": {
+        "valid_count": true,
+        "sum": true
+      },
+      "passed": true,
+      "result": {
+        "valid": 100000,
+        "sum": "10000.00"
+      }
+    },
+    {
+      "kind": "streaming",
+      "elapsed_seconds": 1.885623,
+      "peak_rss_kib": 26460,
+      "checks": {
+        "valid_count": true,
+        "sum": true
+      },
+      "passed": true,
+      "result": {
+        "valid": 100000,
+        "sum": "10000.00"
+      }
+    }
+  ],
+  "corpus": {
+    "inventory_seconds": 0.005301,
+    "index_seconds": 0.452347,
+    "search_five_queries_seconds": 0.520022,
+    "pack_seconds": 0.517543,
+    "verify_seconds": 0.0059,
+    "synthesis_seconds": 0.005657,
+    "files": 120,
+    "segments": 23991,
+    "corpus_bytes": 1233295,
+    "pack_chars": 7066,
+    "pack_utf8_bytes": 7066,
+    "core_evidence_recall": 1.0,
+    "evidence_precision": 1.0,
+    "literal_pack_evidence_precision": 0.7142857142857143,
+    "quote_verification_rate": 1.0,
+    "checks": {
+      "file_count": true,
+      "all_searches_hit": true,
+      "core_evidence_recall": true,
+      "source_verification": true,
+      "correct_effective_and_exception": true,
+      "draft_excluded": true,
+      "conflict_detected": true,
+      "missing_blocks_answer": true,
+      "context_budget": true
+    },
+    "passed": true,
+    "fts_available": true
+  },
+  "passed": true,
+  "corpus_initial_literal_measurement": {
+    "inventory_seconds": 0.005475,
+    "index_seconds": 3.421135,
+    "search_five_queries_seconds": 0.03147,
+    "pack_seconds": 0.024496,
+    "verify_seconds": 0.0147,
+    "synthesis_seconds": 0.009677,
+    "files": 120,
+    "segments": 23991,
+    "corpus_bytes": 1233295,
+    "pack_chars": 9479,
+    "pack_utf8_bytes": 9479,
+    "core_evidence_recall": 1.0,
+    "quote_verification_rate": 1.0,
+    "checks": {
+      "file_count": true,
+      "all_searches_hit": true,
+      "core_evidence_recall": true,
+      "source_verification": true,
+      "correct_effective_and_exception": true,
+      "draft_excluded": true,
+      "conflict_detected": true,
+      "missing_blocks_answer": true,
+      "context_budget": true
+    },
+    "passed": true,
+    "fts_available": true
+  },
+  "qualitative_model_trial": {
+    "model": "gpt-6.1-sol",
+    "contexts": "independent Synthesizer and existing Evidence Auditor; role prompts, no new native role selector assumed",
+    "pack_chars": 9479,
+    "archived_pack_sha256": "7ef9787fb473f0dd54b6b2195e6a490bc483f75d3bb24b198cd535d35cfadb37",
+    "answer_fields_verified": 5,
+    "citations_verified": 5,
+    "all_pack_quotes_verified": 7,
+    "exception_applicability": "not established",
+    "source_instruction_policy": "untrusted data",
+    "total_model_tokens": null,
+    "token_limitation": "Task-only model usage could not be isolated; deterministic benchmark itself makes zero model calls."
+  },
+  "notes": [
+    "Linux isolated Python worker peak RSS includes interpreter. No memory hard cap is inferred.",
+    "One run each; OS caches and external load are uncontrolled. Corpus search quality comparison reruns a warm index.",
+    "Only small measurement facts are published; large generated CSV/corpus/index/evidence and raw agent records remain ignored.",
+    "The model trial read the earlier 9479-character literal pack; the improved identifier pack is7066characters and was checked deterministically, not substituted retroactively."
+  ],
+  "corpus_index_isolated": {
+    "elapsed_seconds": 0.7079252009280026,
+    "peak_rss_kib": 34044,
+    "document_count": 120,
+    "cache_kib": 8192
+  }
+}

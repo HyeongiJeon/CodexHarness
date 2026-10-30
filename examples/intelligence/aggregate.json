@@ -1,0 +1,6 @@
+{
+  "group_by": ["region"],
+  "value": "amount",
+  "id_column": "id",
+  "units": {"amount": {"scale": "1", "unit": "kg", "unit_column": "unit"}}
+}
