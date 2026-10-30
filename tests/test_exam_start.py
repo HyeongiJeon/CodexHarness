@@ -13,7 +13,7 @@ class ExamStartContractTests(unittest.TestCase):
         self.text = (ROOT / "EXAM_START.md").read_text()
 
     def test_one_sentence_and_start_here_preserved(self) -> None:
-        self.assertIn("CodexHarness/EXAM_START.md 읽고 현재 과제를 진행해줘.", self.text)
+        self.assertIn("CodexHarness/EXAM_START.md 읽고 시작해줘.", self.text)
         self.assertIn("사전체험", (ROOT / "START_HERE.md").read_text())
 
     def test_every_role_and_skill_it_names_exists(self) -> None:
@@ -33,6 +33,15 @@ class ExamStartContractTests(unittest.TestCase):
             self.assertIn(f"harness {sub}", self.text)
         out = subprocess.run([sys.executable, "-m", "harness", "web-probe", "--help"], cwd=ROOT, capture_output=True, text=True)
         self.assertEqual(out.returncode, 0)
+
+    def test_collaboration_gate_in_runbook_and_lead_role(self) -> None:
+        for phrase in ("자동으로 하지 않음: 실제 과제 구현", "사용자가 구현 범위를 승인하기 전에는", "다음 단계 논의"):
+            self.assertIn(phrase, self.text)
+        self.assertNotIn("현재 과제를 진행해줘", self.text)
+        import tomllib
+        for path in (".codex/agents/lead.toml", "configs/inherited/agents/lead.toml"):
+            instructions = tomllib.loads((ROOT / path).read_text())["developer_instructions"]
+            self.assertIn("only after the user approves that scope", instructions)
 
     def test_new_skills_documented_and_exam_notes_template_linked(self) -> None:
         skills_doc = (ROOT / "docs/skills.md").read_text()

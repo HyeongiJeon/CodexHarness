@@ -10,7 +10,7 @@ make check
 python3 -m harness launch --mode inherited --model gpt-6.1-sol
 ```
 
-**실전 시작:** Codex에 `CodexHarness/EXAM_START.md 읽고 현재 과제를 진행해줘.` 한 문장을 입력합니다([EXAM_START.md](EXAM_START.md)). 사전체험은 [START_HERE.md](START_HERE.md)를 사용합니다. 웹 미리보기 진단은 `python3 -m harness web-probe http://127.0.0.1:PORT/ --path /api/...`(localhost HTTP 전용, 브라우저 미사용)입니다.
+**실전 시작:** Codex에 `CodexHarness/EXAM_START.md 읽고 시작해줘.` 한 문장을 입력합니다([EXAM_START.md](EXAM_START.md)). 사전체험은 [START_HERE.md](START_HERE.md)를 사용합니다. 웹 미리보기 진단은 `python3 -m harness web-probe http://127.0.0.1:PORT/ --path /api/...`(localhost HTTP 전용, 브라우저 미사용)입니다.
 
 `gpt-6.1-sol`은 이 준비 환경에서 실행 확인한 ID입니다. 시험에서는 제공 `/model`·CLI 카탈로그와 실제 접근을 먼저 확인하고 허용된 모델을 지정합니다. Codex나 Python 설치·업데이트 스크립트는 포함하지 않습니다. `make`가 없으면 Makefile에 적힌 Python 명령을 직접 실행합니다.
 
