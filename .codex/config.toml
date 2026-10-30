@@ -24,7 +24,7 @@ description = "Architect Specialist"
 config_file = "agents/architect.toml"
 
 [agents.explorer]
-description = "Repository Explorer"
+description = "Repository / Corpus Explorer"
 config_file = "agents/explorer.toml"
 
 [agents.core]
@@ -44,8 +44,12 @@ description = "QA / Test Specialist"
 config_file = "agents/qa.toml"
 
 [agents.reviewer]
-description = "Critical Reviewer"
+description = "Critical Reviewer / Evidence Auditor"
 config_file = "agents/reviewer.toml"
+
+[agents.synthesizer]
+description = "Evidence Synthesizer"
+config_file = "agents/synthesizer.toml"
 
 [agents.docs]
 description = "Documentation Specialist"

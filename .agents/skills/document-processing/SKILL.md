@@ -20,6 +20,8 @@ Read [references/formats.md](references/formats.md) and use only the subsection 
 
 **Output contract:** Requested artifact, reusable transformation instructions/code where needed, content/rendering evidence, extraction limits.
 
+For multi-file search and evidence extraction, use `python3 -m harness corpus inventory/index/search/evidence-pack` via [multi-document-retrieval](../multi-document-retrieval/SKILL.md). Do not load the whole corpus into context.
+
 **Tools:** Available local document libraries and conversion/rendering CLIs; preserve originals and avoid external upload.
 
 **Verification:** Output opens, content is retained, structure is valid, and visual inspection covers representative/changed pages.

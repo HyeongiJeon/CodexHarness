@@ -1,6 +1,6 @@
 ---
 name: data-processing
-description: "Transform, clean, join, or analyze structured data with traceable assumptions; use when dataset or metric correctness is central."
+description: "Stream large CSV/JSONL, clean, join, or analyze structured data with traceable assumptions; use when dataset or metric correctness is central."
 ---
 # Data Processing
 
@@ -9,7 +9,7 @@ Exam profile: no Astra, computer-use, push, external uploads, or AI-prohibited w
 
 **Inputs:** Source files, schema, transformation rules, output format, size/quality constraints.
 
-For joins, messy schemas, large files, or derived metrics, read [references/data-contracts.md](references/data-contracts.md).
+For joins, messy schemas, derived metrics, or large datasets, read [references/data-contracts.md](references/data-contracts.md). The harness `data profile` and `data aggregate` commands support repeatable local profiling and grouped aggregation; use these as an existing capability rather than creating a duplicate skill or one-off pipeline.
 
 ## Procedure
 
