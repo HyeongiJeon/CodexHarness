@@ -13,18 +13,20 @@
 ### 0. 시험 제한 (변경 금지)
 Git push 금지, 외부 서비스로 과제 데이터 전송 금지, 브라우저·GUI·Computer Use 자동화 금지, Codex 업데이트 금지, 인증·권한·감독·관리 설정 변경 금지, Astra 금지. AI 사용이 금지된 평가에서는 모든 AI 작업을 중단한다. 이 제한과 Cofa의 제한이 충돌하면 더 엄격한 쪽을 따른다.
 
+**하네스 명령 실행 경로:** `python3 -m harness`는 CodexHarness 폴더 밖(과제 프로젝트 등)에서는 `No module named harness`로 실패한다. 아래 모든 하네스 명령은 CodexHarness 폴더에서 실행하거나, 어디서든 `PYTHONPATH=<CodexHarness 절대경로>`를 앞에 붙여 실행한다.
+
 ### 자동으로 하는 일 / 하지 않는 일
 - 자동: 아래 1단계의 환경 파악·Skill 연결·모델과 서브에이전트 확인·역할 구성 준비·도구 확인, 필요한 최소 검증, 결과의 간단한 보고.
 - **자동으로 하지 않음: 실제 과제 구현.** 설정을 마쳤다는 이유로 구현을 시작하지 않는다. 사용자가 구현 범위를 승인하기 전에는 과제 코드를 수정하지 않는다(읽기·분석과 하네스 설정만).
 
 ### 1. 환경과 과제 분석 (0–15분)
 1. 현재 디렉터리에서 실제 과제 프로젝트 루트와 CodexHarness 경로를 찾는다(`ls`, `git rev-parse --show-toplevel`). 과제 README, AGENTS.md, 요구사항 문서, 기존 실행·테스트 명령을 읽는다. 과제 프로젝트가 없으면 만들지 말고 사용자에게 알린다.
-2. CodexHarness 경로에서 `python3 -m harness doctor`, `python3 -m harness validate`를 실행한다. 대량 설치·전체 벤치마크·프레임워크 재구축은 하지 않는다.
+2. CodexHarness 경로에서 `PYTHONPATH=<CodexHarness 절대경로> python3 -m harness doctor`, `PYTHONPATH=<CodexHarness 절대경로> python3 -m harness validate`를 실행한다. 대량 설치·전체 벤치마크·프레임워크 재구축은 하지 않는다.
 3. 과제에 필요한 Skill만 연결한다(기존 파일은 덮어쓰지 않음). 웹 과제 예:
-   `python3 -m harness install-skills --project <과제 루트> --skill web-application-development --skill web-runtime-debugging --skill web-flow-verification --skill web-ui-patterns --skill frontend-design --skill rapid-mvp-development --skill parallel-implementation --skill completion-verification --skill decision-and-evidence-recording`
+   `PYTHONPATH=<CodexHarness 절대경로> python3 -m harness install-skills --project <과제 루트> --skill web-application-development --skill web-runtime-debugging --skill web-flow-verification --skill web-ui-patterns --skill frontend-design --skill rapid-mvp-development --skill parallel-implementation --skill completion-verification --skill decision-and-evidence-recording`
    API는 `api-backend-development`, 대시보드는 `visualization-and-dashboard`, 데이터는 `data-processing`, 문서·다중 문서는 해당 Skill을 추가한다. **새로 설치한 Skill은 새 세션에서 발견된다.** 현재 세션에 소급 적용되지 않으면 해당 `SKILL.md`를 직접 읽어 따른다.
 4. 위임 수단을 확인한다. 이 세션에 네이티브 서브에이전트 도구가 있으면 사용한다. 사용자가 역할 설정으로 시작하려면 알려 준다:
-   `python3 -m harness launch --project <과제 루트> --mode routed --dry-run` 후 필요 시 `--mode inherited --model <확인된 모델>`. 이미 실행 중인 세션에는 소급 적용되지 않으며, 설정 파일을 읽은 것을 에이전트 가동의 증거로 쓰지 않는다. 역할 지정이 불가하면 `python3 -m harness role <이름>` 출력을 새 에이전트 프롬프트로 전달하고 inherited fallback을 기록한다. 서브에이전트가 금지·불가이면 순차로 진행하고 그 한계를 보고한다.
+   `PYTHONPATH=<CodexHarness 절대경로> python3 -m harness launch --project <과제 루트> --mode routed --dry-run` 후 필요 시 `--mode inherited --model <확인된 모델>`. 이미 실행 중인 세션에는 소급 적용되지 않으며, 설정 파일을 읽은 것을 에이전트 가동의 증거로 쓰지 않는다. 역할 지정이 불가하면 `PYTHONPATH=<CodexHarness 절대경로> python3 -m harness role <이름>` 출력을 새 에이전트 프롬프트로 전달하고 inherited fallback을 기록한다. 서브에이전트가 금지·불가이면 순차로 진행하고 그 한계를 보고한다.
 
 ### 2. 전문 에이전트 운영 (구현 승인 후)
 모든 에이전트를 무조건 띄우지 않는다. 승인된 범위에 필요한 역할만, 독립 작업은 병렬로 위임한다. 설정 단계에서는 requirements·explorer 같은 읽기 전용 조사와 역할 사용 가능 여부 확인만 한다. 모델 정책은 기존 설정(routed: Sol/Terra/Luna, inherited: 부모 모델 상속)을 유지하되 **실제로 관찰한 모델·역할만** 기록한다.
@@ -58,7 +60,7 @@ Lead는 diff를 직접 읽고 통합 코드에서 명령을 직접 실행한다.
 (구현은 사용자 승인 후. UI·서버·브라우저 미리보기·HTML/React/Vite/Flask/Express 등이 보이면)
 - 설정 단계에서 requirements와 explorer를 병렬로 실행해 분석을 공유하고, 승인 후 진행한다. architect가 최소 구조와 API 계약(경로·JSON 형태)을 정의한다.
 - frontend는 화면·사용성(`web-ui-patterns`, `frontend-design`), core는 API·상태·저장을 담당한다. 파일 소유권을 분리하고 계약을 먼저 합의한다. 분석이 필요하면 data를 추가한다.
-- **서버 실행과 미리보기 확인은 마지막까지 미루지 않는다.** 첫 통합 시점에 서버를 실행하고 `python3 -m harness web-probe http://127.0.0.1:<포트>/ --path /api/<경로>`를 실행한다. 서버는 필요하면 `0.0.0.0`에 바인딩하되, `0.0.0.0`은 접속 주소가 아니라는 점을 구분해 사용자에게 **실제 포트 번호**를 알려 준다.
+- **서버 실행과 미리보기 확인은 마지막까지 미루지 않는다.** 첫 통합 시점에 서버를 실행하고 `PYTHONPATH=<CodexHarness 절대경로> python3 -m harness web-probe http://127.0.0.1:<포트>/ --path /api/<경로>`를 실행한다. 서버는 필요하면 `0.0.0.0`에 바인딩하되, `0.0.0.0`은 접속 주소가 아니라는 점을 구분해 사용자에게 **실제 포트 번호**를 알려 준다.
 - 빈 화면·오류가 보고되면 `web-runtime-debugging`으로 서버 정상 / 프런트엔드 오류 / 미리보기 연결 실패를 구분한다. 프로브가 정상인데 미리보기가 비면 해결되었다고 쓰지 말고, 사용자에게 브라우저 콘솔 첫 오류와 Network의 실패 요청을 확인하도록 요청한다. 공식 확인되지 않은 Cofa 기능·URL을 만들어내지 않는다.
 - 완료 주장 전 `web-flow-verification`: 입력 → API → 저장 → 화면 반영 → 새로고침 → 오류 흐름. HTTP 200만으로 흐름 성공을 주장하지 않으며, 자동 검사와 사용자가 직접 할 브라우저 확인을 구분해 표로 정리한다.
 - qa와 reviewer는 통합 이후에 실행한다.

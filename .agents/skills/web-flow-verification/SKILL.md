@@ -14,7 +14,7 @@ Read [references/flow-matrix.md](references/flow-matrix.md) for the step matrix 
 ## Procedure
 
 1. Write the journey as steps: screen input, request, processing, storage, response, screen update, reload.
-2. Start the app with the real command, then run `python3 -m harness web-probe http://127.0.0.1:PORT/ --path /api/...` to confirm server and assets before the flow.
+2. Start the app with the real command, then run `PYTHONPATH=<CodexHarness path> python3 -m harness web-probe http://127.0.0.1:PORT/ --path /api/...` (or run it from the CodexHarness directory) to confirm server and assets before the flow.
 3. Automatic checks over local HTTP: create/update through the API with valid and invalid payloads, read it back, restart the server if persistence is claimed, and confirm the stored state matches.
 4. Mark each remaining step (typing in the form, seeing the list update, refresh, empty and error screens, narrow width) as **user-verify** with exact instructions and expected result.
 5. Run the project's tests and production build, then the final launch from a clean start exactly as a grader would.
