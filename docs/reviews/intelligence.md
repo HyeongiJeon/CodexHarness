@@ -102,3 +102,50 @@ No additional actionable correctness finding remains from this review's stated
 scope. The limitations above still apply. Files outside the reviewed data,
 document, corpus, evidence, resource, and CLI paths may have changed concurrently;
 the lead remains responsible for final integration and delivery claims.
+
+## Follow-up: bounded-context answer and calculation comparison
+
+A later narrow review inspected the local synthesizer trial output and its
+9,479-character evidence pack. The auditor ran:
+
+```sh
+python3 -m harness evidence verify .harness/intelligence/documents/pack.json
+python3 -m unittest tests.test_evidence -v
+```
+
+Source verification exited 0 and verified all seven pack excerpts, including
+original-header metadata. A separate Python read retained each of the five
+answer citations' first six source lines and exact locator line; it asserted
+that the cited excerpt matched that original line. The relevant fact locators
+were lines 7, 106, 206, 206 and 206 in the five target source documents. This
+read avoided whole-corpus output. The private local
+`.harness/intelligence/auditor-trial.json` records hashes, exact quotes, original
+headers, verification results and answer checks; it is excluded from Git.
+
+The answer is supported within the stated scope: the historical 100 kg limit
+ended on 2026-06-01, the approved base limit is 110 kg, and the approved 120 kg
+exception requires the condition `urgent approved`. The latest 999 kg draft
+does not apply as of 2026-10-30. The observed 115 kg record does not establish
+exception approval or compliance. The synthesizer correctly preserves that
+missing evidence and the pack's truncation limitation. This auditor verifies
+the output against originals; the lead retains responsibility for establishing
+the synthesizer's actual input boundary from its execution trace. One synthetic
+trial does not establish general reasoning performance or exhaustive retrieval.
+
+One new P1 finding was independently reproduced in
+`harness/evidence.py:compare_calculation`: a saved report's unit label could be
+changed from `USD` to `kg` while the separately copied calculation contract
+still recomputed `USD`. The comparator returned `verified` against a 1 kg
+document claim because it read the unit label from the saved report. The lead
+repaired this by comparing saved unit/value metadata with recomputation and
+deriving the declared unit from the recomputed result. The exact reproduction
+now returns `unverified` after tampering; the unchanged USD contract compared
+with requested kg returns `insufficient_evidence`. The final focused evidence
+suite exited 0 with all nine tests passing in 0.058 seconds, including the new
+calculation comparison and tampered-unit regression.
+
+The local answer audit status is `verified_with_limits`; the new unit-provenance
+finding is repaired for the reproduced case. Unit declarations without a
+validated source unit column remain caller assumptions. The follow-up did not
+repeat the lead's 120-document or joined million-row benchmarks, launch another
+model, or change code.
