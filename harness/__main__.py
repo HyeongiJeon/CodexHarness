@@ -93,6 +93,9 @@ def main() -> int:
     demo = sub.add_parser("demo", help="synthetic local web/data practice application")
     demo.add_argument("--port", type=int, default=8765)
     demo.add_argument("--host", default="127.0.0.1")
+    wp = sub.add_parser("web-probe", help="local HTTP diagnosis: port, HTML, assets, API paths (localhost only, no browser)")
+    wp.add_argument("url")
+    wp.add_argument("--path", action="append", default=[], help="extra path such as /api/items to check for HTML fallback")
     bench = sub.add_parser("benchmark", help="run actual Codex coding exercise; private evidence stays local")
     bench.add_argument("--mode", choices=("single", "multi", "smoke"), default="smoke")
     bench.add_argument("--routing", choices=("routed", "inherited"), default="inherited")
@@ -220,6 +223,11 @@ def main() -> int:
             report = synthesize(pack, entity=args.entity, as_of=args.as_of, attribute=args.attribute)
         print(json.dumps(report, indent=2, ensure_ascii=False))
         return 0 if report['status'] in {'verified', 'supported'} else 1
+    elif args.command == "web-probe":
+        from .web_probe import main as probe_main
+        text, code = probe_main(args.url, args.path)
+        print(text)
+        return code
     elif args.command == "benchmark":
         from .benchmark import run
         return run(args.mode, args.routing, args.model, args.timeout)

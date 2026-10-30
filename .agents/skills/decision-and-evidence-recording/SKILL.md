@@ -13,7 +13,8 @@ Exam profile: no Astra, computer-use, push, external uploads, or AI-prohibited w
 
 1. Record decisions changing scope, architecture, assumptions, or acceptance: reason, material alternatives, and affected requirement.
 2. For checks keep exact command/method, relevant environment, observed result, and applicability to final code.
-3. Use the task’s existing evidence location or one concise local file; link large artifacts rather than copying them.
+3. For exam-time development notes (technology chosen and why, AI-suggested tools and how they were verified, exact test commands and results, unresolved problems), append short rows to `templates/exam-notes.md` in the CodexHarness repository (or any short local file) as the work happens; record only facts that occurred. Never draft answers for an AI-prohibited written assessment.
+   Use the task’s existing evidence location or one concise local file; link large artifacts rather than copying them.
 4. Refresh evidence after relevant edits and use it for factual handoff. Redact credentials and unnecessary personal data.
 
 **Output contract:** Compact log linking requirement, decision/check, observed result, and artifact; inference is labeled.

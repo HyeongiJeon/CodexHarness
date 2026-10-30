@@ -10,6 +10,8 @@ make check
 python3 -m harness launch --mode inherited --model gpt-6.1-sol
 ```
 
+**실전 시작:** Codex에 `CodexHarness/EXAM_START.md 읽고 현재 과제를 진행해줘.` 한 문장을 입력합니다([EXAM_START.md](EXAM_START.md)). 사전체험은 [START_HERE.md](START_HERE.md)를 사용합니다. 웹 미리보기 진단은 `python3 -m harness web-probe http://127.0.0.1:PORT/ --path /api/...`(localhost HTTP 전용, 브라우저 미사용)입니다.
+
 `gpt-6.1-sol`은 이 준비 환경에서 실행 확인한 ID입니다. 시험에서는 제공 `/model`·CLI 카탈로그와 실제 접근을 먼저 확인하고 허용된 모델을 지정합니다. Codex나 Python 설치·업데이트 스크립트는 포함하지 않습니다. `make`가 없으면 Makefile에 적힌 Python 명령을 직접 실행합니다.
 
 ## 구성과 실행 방식
@@ -29,7 +31,7 @@ flowchart LR
 | `AGENTS.md` | 리드 운영 원칙·과제 우선·시험 제한 |
 | `.codex/config.toml`, `.codex/agents/` | 역할별 모델·추론 강도, 최대 4개 설정값·깊이 1 |
 | `configs/inherited/` | 역할 모델·강도를 고정하지 않는 호환 번들 |
-| `.agents/skills/` | 조건별 20개 Skill·필요할 때만 읽는 references |
+| `.agents/skills/` | 조건별 23개 Skill·필요할 때만 읽는 references |
 | `harness/` | doctor·명시적 역할 실행기·계획 검사·안전한 Skill 복사·CSV·HTTP 예제·실제 benchmark |
 | `examples/`, `tests/`, `benchmarks/` | 합성 입력·의도적 결함·회귀 검사·재현 가능한 측정 결과 |
 | `.harness/` | 원시 실행 증거의 로컬 보관; Git 제외 |
@@ -71,7 +73,7 @@ python3 -m harness launch --project /path/to/assignment --mode inherited --model
 
 ## Skill과 도구
 
-[20개 Skill의 전체 목록과 자동 선택 조건](docs/skills.md)을 제공합니다. 기존 17개에 문서 검색·근거 종합·출처 검증 3개를 추가했으며 `name`·`description`으로 후보를 발견하고 본문과 references를 필요한 때만 읽습니다. 모든 Skill을 한꺼번에 로딩하지 않습니다. 기존 smoke에서는 requirements 에이전트가 선택한 Skill을 실제 읽었습니다. 새 Skill·역할은 새 세션에서 발견을 확인합니다.
+[23개 Skill의 전체 목록과 자동 선택 조건](docs/skills.md)을 제공합니다. 기존 17개에 문서 검색·근거 종합·출처 검증 3개, 웹 런타임 디버깅·UI 패턴·흐름 검증 3개를 추가했으며 `name`·`description`으로 후보를 발견하고 본문과 references를 필요한 때만 읽습니다. 모든 Skill을 한꺼번에 로딩하지 않습니다. 기존 smoke에서는 requirements 에이전트가 선택한 Skill을 실제 읽었습니다. 새 Skill·역할은 새 세션에서 발견을 확인합니다.
 
 기본 도구는 제공 Codex·터미널·Git·Python 표준 라이브러리입니다. CSV 스키마, 결측·중복·날짜·금액 검증, Decimal 집계·0 분모 처리, 로컬 JSON 오류 처리와 HTTP 회귀 검사를 제공합니다. MCP·플러그인은 기본으로 설치하거나 설정하지 않습니다. [도구·네트워크·인증·라이선스 범위와 대안](docs/tools-and-licenses.md)을 확인하세요.
 
