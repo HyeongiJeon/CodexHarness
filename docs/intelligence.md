@@ -66,7 +66,7 @@ ID/JOIN 키는 NFKC+trim, 대소문자 구분이다. JOIN 오른쪽 키 중복�
 - `regex`: 512자 패턴, 별도 로컬 프로세스에서 3초 한도. stdin/노트북 호출도 지원한다.
 - `fts`: SQLite FTS5가 있을 때 원래 MATCH 문법. 한국어 형태소 분석·임베딩 검색은 아니다.
 
-`--status/--entity/--date-from/--date-to`는 문서 메타데이터 필터다. 기간은 document_date이며 시행 기간은 synthesis에서 별도 판단한다. 메타데이터는 처음 30줄 키(document_date/version/status/effective_from/effective_to/entity) 또는 명시적 manifest에서 읽고 출처를 구분한다. 파일 수정 시각을 문서 날짜로 만들지 않는다. manifest가 원문과 다르면 독립 감사 전에는 supported 결론을 내리지 않는다.
+`--status/--entity/--date-from/--date-to`는 문서 메타데이터 필터다. 기간은 document_date이며 시행 기간은 synthesis에서 별도 판단한다. 메타데이터는 처음 30줄 키(document_date/version/status/effective_from/effective_to/entity) 또는 명시적 manifest에서 읽고 출처를 구분한다. 파일 수정 시각을 문서 날짜로 만들지 않는다. manifest가 원문과 다르면 이 결정적 종합 경로는 supported 결론을 내리지 않는다. 독립적으로 manifest 원본도 감사한 뒤 Codex 답변에서 별도 근거로 사용할 수 있다.
 
 ## Evidence Pack·종합
 

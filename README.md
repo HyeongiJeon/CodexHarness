@@ -41,12 +41,12 @@ flowchart LR
 | Main / lead | `gpt-6.1-sol` | high | 기준·시간·위임·파일 소유권·최종 실행 |
 | requirements | `gpt-6.1-sol` | high | 필수·선택·질문·수용 기준 |
 | architect | `gpt-6.1-sol` | high | 최소 구조·인터페이스·의존성 |
-| explorer | `gpt-6-luna` | medium | 기본 읽기 전용 저장소 탐색 |
+| explorer | `gpt-6-luna` | medium | 기본 읽기 전용 저장소·문서 Corpus 탐색 |
 | core | `gpt-6.1-sol` | high | 핵심 로직·API·복잡한 수정 |
 | frontend | `gpt-6.1-sol` | medium | 화면·상태·접근성·핵심 흐름 |
-| data | `gpt-5.6-terra` | high | 정제·스키마·계산 검증 |
+| data | `gpt-5.6-terra` | high | 정제·대용량 JOIN·정확한 계산 검증 |
 | qa | `gpt-5.6-terra` | high | 실제 재현·테스트·회귀 |
-| reviewer | `gpt-6.1-sol` | high | 새 문맥의 독립 결함 검토 |
+| reviewer | `gpt-6.1-sol` | high | 새 문맥의 독립 결함·원문 근거 감사 |
 | docs | `gpt-6-luna` | medium | 사실 기반 결정·사용법·증거 |
 | synthesizer | `gpt-6.1-sol` | high | 근거팩 종합·상충·조건부 결론 |
 
