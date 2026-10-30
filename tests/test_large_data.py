@@ -88,7 +88,7 @@ class LargeDataTests(unittest.TestCase):
         result = aggregate_files([path], group_by=['day'], value='amount', id_column='id',
                                  date_columns={'day': '%d/%m/%Y'},
                                  units={'amount': {'scale': '0.01', 'unit': 'USD'}},
-                                 where={'day': '2026-02-01', 'amount': {'gte': 0}})
+                                 where={'day': {'gte': '2026-02-01'}, 'amount': {'gte': 0}})
         self.assertEqual(result['valid'], 2)
         self.assertEqual(result['totals']['sum'], '2.00')
         self.assertEqual(result['exclusion_reasons'], {'filtered': 1, 'invalid_date': 1})

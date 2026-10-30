@@ -11,11 +11,12 @@ from contextlib import closing
 import datetime as dt
 import hashlib
 import json
-import multiprocessing
 import os
 from pathlib import Path
 import re
 import sqlite3
+import subprocess
+import sys
 import tempfile
 from typing import Iterator
 
@@ -139,6 +140,8 @@ def index_corpus(root: Path, db_path: Path, metadata: dict | None = None, max_ch
     segment_count = 0
     try:
         with closing(sqlite3.connect(temporary_path)) as conn, conn:
+            conn.execute('PRAGMA temp_store=FILE')
+            conn.execute('PRAGMA cache_size=-8192')
             fts_available = _schema(conn)
             conn.executemany("INSERT INTO settings VALUES (?, ?)", [("schema_version", SCHEMA_VERSION), ("root", str(root)), ("fts_available", str(int(fts_available))), ("max_chars_per_document", str(max_chars))])
             for record in inventory(root):
@@ -278,15 +281,6 @@ def _search(db_path: Path, query: str, *, mode: str, limit: int, max_chars: int,
         conn.close()
 
 
-def _regex_worker(connection, db_path, query, options):
-    try:
-        connection.send((True, _search(db_path, query, mode="regex", **options)))
-    except Exception as exc:
-        connection.send((False, str(exc)))
-    finally:
-        connection.close()
-
-
 def search(db_path: Path, query: str, *, mode: str = "literal", limit: int = 20, max_chars: int = 600,
            status: str | None = None, date_from: str | None = None, date_to: str | None = None,
            entity: str | None = None) -> dict:
@@ -296,10 +290,17 @@ def search(db_path: Path, query: str, *, mode: str = "literal", limit: int = 20,
     filters are inclusive and use explicit document_date metadata only. Regex
     searches exceeding three seconds are terminated and raise ValueError.
     """
-    if mode not in {"literal", "regex", "fts"}:
-        raise ValueError("mode must be literal, regex, or fts")
+    if mode not in {"literal", "identifier", "regex", "fts"}:
+        raise ValueError("mode must be literal, identifier, regex, or fts")
     if not isinstance(query, str) or not query:
         raise ValueError("query must be a nonempty string")
+    if mode == 'identifier':
+        if len(query) > 200:
+            raise ValueError('identifier query is limited to 200 characters')
+        result = search(db_path, r'(?<![\w-])' + re.escape(query) + r'(?![\w-])', mode='regex', limit=limit,
+                        max_chars=max_chars, status=status, date_from=date_from, date_to=date_to, entity=entity)
+        result.update(query=query, mode=mode)
+        return result
     if mode == "regex" and len(query) > 512:
         raise ValueError("regex query is limited to 512 characters")
     if not 1 <= limit <= 1000 or not 1 <= max_chars <= 10_000:
@@ -316,24 +317,16 @@ def search(db_path: Path, query: str, *, mode: str = "literal", limit: int = 20,
     options = dict(limit=limit, max_chars=max_chars, status=status, date_from=date_from, date_to=date_to, entity=entity)
     if mode != "regex":
         return _search(db_path, query, mode=mode, **options)
-    receiver, sender = multiprocessing.Pipe(duplex=False)
-    process = multiprocessing.Process(target=_regex_worker, args=(sender, db_path, query, options), daemon=True)
+    # A subprocess supports notebooks/stdin too; multiprocessing spawn/forkserver
+    # cannot reload an interactive __main__ path on Python 3.14.
+    script = ('import sys,json; from pathlib import Path; sys.path.insert(0,sys.argv[1]); '
+              'from harness.corpus import _search; '
+              'print(json.dumps(_search(Path(sys.argv[2]),sys.argv[3],mode="regex",**json.loads(sys.argv[4])),ensure_ascii=False))')
     try:
-        process.start()
-        sender.close()
-        if not receiver.poll(REGEX_TIMEOUT_SECONDS):
-            raise ValueError(f"regex search exceeded {REGEX_TIMEOUT_SECONDS:g} second time limit")
-        try:
-            success, value = receiver.recv()
-        except EOFError as exc:
-            raise ValueError("regex search worker exited without a result") from exc
-        if not success:
-            raise ValueError(value)
-        return value
-    finally:
-        if process.pid is not None:
-            if process.is_alive():
-                process.terminate()
-            process.join()
-        receiver.close()
-        sender.close()
+        completed = subprocess.run([sys.executable,'-c',script,str(Path(__file__).resolve().parents[1]),str(Path(db_path).resolve()),query,json.dumps(options)],
+                                   capture_output=True,text=True,timeout=REGEX_TIMEOUT_SECONDS)
+    except subprocess.TimeoutExpired as exc:
+        raise ValueError(f"regex search exceeded {REGEX_TIMEOUT_SECONDS:g} second time limit") from exc
+    if completed.returncode:
+        raise ValueError('regex search failed: ' + completed.stderr[-1500:])
+    return json.loads(completed.stdout)

@@ -5,7 +5,7 @@ import tempfile
 import unittest
 
 from harness.corpus import index_corpus
-from harness.evidence import evidence_pack, serialized, synthesize, verify
+from harness.evidence import evidence_pack, serialized, synthesize, verify, compare_calculation
 
 
 class EvidenceTests(unittest.TestCase):
@@ -87,3 +87,19 @@ class EvidenceTests(unittest.TestCase):
         index_corpus(self.docs,self.db,max_chars=300)
         pack=evidence_pack(self.db,['FACT'])
         self.assertEqual(synthesize(pack,entity='LINE-7',as_of='2026-10-30')['status'],'insufficient_evidence')
+
+    def test_recomputed_multifile_total_compares_to_document_claim(self):
+        from harness.large_data import aggregate_files
+        self.doc('a.md','0.30');pack=self.pack()
+        a=self.root/'a.csv';b=self.root/'b.csv'
+        a.write_text('id,amount\na,0.10\n');b.write_text('id,amount\nb,0.20\n')
+        config={'group_by':[],'value':'amount','id_column':'id','units':{'amount':{'scale':1,'unit':'kg'}}}
+        report=aggregate_files([a,b],**config);report['calculation_contract']={'paths':[str(a),str(b)],'config':config}
+        kwargs={'entity':'LINE-7','attribute':'limit','as_of':'2026-10-30','unit':'kg'}
+        self.assertEqual(compare_calculation(pack,report,**kwargs)['status'],'verified')
+        tampered=json.loads(json.dumps(report));tampered['units']['amount']['unit']='USD'
+        self.assertEqual(compare_calculation(pack,tampered,**kwargs)['status'],'unverified')
+        self.doc('a.md','0.31');pack=self.pack()
+        self.assertEqual(compare_calculation(pack,report,**kwargs)['status'],'conflict')
+        report['totals']['sum']='999'
+        self.assertEqual(compare_calculation(pack,report,**kwargs)['status'],'unverified')

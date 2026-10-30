@@ -136,6 +136,13 @@ class CorpusTests(unittest.TestCase):
         self.assertIsNone(row["metadata"]["document_date"])
         self.assertEqual(search(self.db, "keyword", date_from="2000-01-01")["results"], [])
 
+    def test_identifier_boundaries_avoid_numeric_distractors(self):
+        self.write('a.txt','BASE-420 XBASE-42 BASE-42-OLD\ncorrect: BASE-42\n')
+        index_corpus(self.root,self.db)
+        result=search(self.db,'BASE-42',mode='identifier')
+        self.assertEqual(result['result_count'],1)
+        self.assertIn('correct',result['results'][0]['excerpt'])
+
 
 if __name__ == "__main__":
     unittest.main()

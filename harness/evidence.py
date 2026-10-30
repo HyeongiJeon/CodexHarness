@@ -258,3 +258,42 @@ def synthesize(pack: dict, *, entity: str, as_of: str, attribute: str | None = N
     elif answers and not output['missing_evidence']:
         output.update(status='supported', answer=answers)
     return output
+
+
+def compare_calculation(pack: dict, calculation: dict, *, entity: str, attribute: str, as_of: str, unit: str) -> dict:
+    """Re-execute a saved aggregate contract and compare a document claim.
+
+    The entity/attribute binding is explicitly requested by the caller, never
+    asserted to have been inferred from arbitrary CSV column names.
+    """
+    from .large_data import aggregate_files
+    contract = calculation.get('calculation_contract')
+    if not isinstance(contract, dict) or not contract.get('paths') or not isinstance(contract.get('config'), dict):
+        return {'status':'insufficient_evidence','reason':'Saved calculation_contract required to reproduce totals'}
+    recomputed = aggregate_files(contract['paths'], **contract['config'])
+    if (recomputed['sources'] != calculation.get('sources') or recomputed['totals'] != calculation.get('totals')
+            or recomputed['valid'] != calculation.get('valid') or recomputed['excluded'] != calculation.get('excluded')
+            or recomputed['units'] != calculation.get('units') or recomputed['value'] != calculation.get('value')):
+        return {'status':'unverified','reason':'Source provenance or totals differ from recomputation'}
+    fact_report = synthesize(pack, entity=entity, as_of=as_of, attribute=attribute)
+    if fact_report['status'] != 'supported':
+        return {'status':fact_report['status'],'document_analysis':fact_report,'reason':'Document claims unresolved'}
+    comparisons = []
+    value_spec = recomputed['units'].get(recomputed['value'])
+    declared_unit = value_spec.get('unit') if isinstance(value_spec, dict) else None
+    if declared_unit != unit:
+        return {'status':'insufficient_evidence','reason':'Calculation requires a matching explicit unit label'}
+    for claim in fact_report['answer']:
+        if claim.get('condition') or claim.get('applies_to'):
+            comparisons.append({'status':'missing_evidence','reason':'Conditional claim needs verified applicability','claim':claim})
+            continue
+        try:
+            actual, expected = _value_key({'value':recomputed['totals']['sum'],'unit':unit}), _value_key(claim)
+            comparisons.append({'status':'fact' if actual == expected else 'conflict', 'claim':claim,
+                                'calculated_sum':recomputed['totals']['sum'], 'unit':unit})
+        except ValueError as exc:
+            comparisons.append({'status':'missing_evidence','reason':str(exc)})
+    status = 'conflict' if any(c['status']=='conflict' for c in comparisons) else 'verified' if comparisons and all(c['status']=='fact' for c in comparisons) else 'insufficient_evidence'
+    return {'status':status,'comparisons':comparisons,'calculation_reproduced':True,
+            'origin':'user_requested_entity_attribute_binding', 'valid':recomputed['valid'], 'excluded':recomputed['excluded'],
+            'limitations':['Unit declarations without unit_column are caller assumptions, not source-authenticated physical units.']}

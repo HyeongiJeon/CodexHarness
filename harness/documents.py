@@ -182,10 +182,16 @@ def _word_text(element) -> str:
 
 def _docx(path: Path, max_chars: int) -> Iterator[dict]:
     notes = ["DOCX body text extraction may omit headers, footers, comments, drawing text and layout"]
+    incomplete = False
     with zipfile.ZipFile(path) as archive:
         _check_zip(archive, max_chars)
+        omitted = [name for name in archive.namelist() if name.startswith(('word/header','word/footer','word/comments','word/footnotes','word/endnotes')) and name.endswith('.xml')]
+        if omitted:
+            notes.append('Additional text parts not extracted: ' + ', '.join(omitted[:10]))
+            incomplete = True
         if any(name.startswith("word/media/") for name in archive.namelist()):
             notes.append("Embedded images are not OCRed or extracted")
+            incomplete = True
         paragraph, table, section = 0, 0, 1
         tables = []
         paragraphs = []
@@ -208,6 +214,7 @@ def _docx(path: Path, max_chars: int) -> Iterator[dict]:
                                            "paragraph": paragraph,
                                            **(tables[-1] if tables else {})})
                     elif name in {"ins", "del", "moveFrom", "moveTo"}:
+                        incomplete = True
                         warning = "Tracked changes are present; extracted text includes available inserted/deleted text without revision resolution"
                         if warning not in notes:
                             notes.append(warning)
@@ -231,7 +238,7 @@ def _docx(path: Path, max_chars: int) -> Iterator[dict]:
                     elif name in {"tr", "tc"}:
                         element.clear()
         # A final structural note retains warnings discovered after the last text.
-        yield _record("", {"format": "docx", "summary": True}, notes)
+        yield _record("", {"format": "docx", "summary": True}, notes, 'partial' if incomplete else 'ok')
 
 
 def _bounded_xml(archive: zipfile.ZipFile, name: str, limit=2 * 1024 * 1024):

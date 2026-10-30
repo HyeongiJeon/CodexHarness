@@ -173,6 +173,11 @@ def profile_file(path: Path | str, sample_rows: int = 1000, encoding: str | None
     sample: list[dict] = []
     sampled = 0
     schema_truncated = False
+    if _format(path) in {'csv', 'tsv'}:
+        with path.open(encoding=resolved_encoding, newline='') as header_source:
+            header = next(csv.reader(_bounded_lines(header_source), delimiter='\t' if path.suffix.lower() == '.tsv' else ','), [])
+        schema = {name.strip(): Counter() for name in header[:256]}
+        schema_truncated = len(header) > 256
     issues: Counter = Counter()
     iterator = _rows(path, resolved_encoding)
     try:
@@ -249,7 +254,13 @@ def _filters(row: dict, where: dict) -> bool:
                     try:
                         left, right = _number(actual), _number(expected)
                     except ValueError:
-                        return False
+                        try:
+                            left = datetime.strptime(str(actual), '%Y-%m-%d').date()
+                            right = datetime.strptime(str(expected), '%Y-%m-%d').date()
+                            if left.isoformat() != str(actual) or right.isoformat() != str(expected):
+                                return False
+                        except ValueError:
+                            return False
                     passed = {'gt': left > right, 'gte': left >= right, 'lt': left < right, 'lte': left <= right}[operator]
                 elif operator == 'eq':
                     passed = str(actual) == str(expected)
