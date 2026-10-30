@@ -10,6 +10,7 @@ Original project and exam rules take precedence. No Astra, external transfers, c
 **Procedure:**
 1. Work independently of the implementation/synthesizer context when authorized. Run `python3 -m harness evidence verify PACK.json` against current originals.
 2. Check source hashes, actual locator and exact extracted slice; verify document date/version/status against original header or separately audited manifest.
+   Separately inspect pack truncation, missing queries and the declared search scope. Valid quotations from a partial pack cannot certify a complete answer; preserved conflicts remain reportable.
 3. Recheck candidate conclusions and conditional exceptions semantically. Literal quote verification alone does not prove business meaning or document authenticity.
 4. For a saved aggregate run `evidence compare PACK.json --calculation RESULT.json --entity ID --attribute total --as-of YYYY-MM-DD --unit kg`; it re-executes the local contract and checks sources/counts/totals.
 **Output contract:** Verified/unsupported citations, concrete conflicts or missing evidence, exact commands, numerical differences and audited scope.

@@ -42,6 +42,42 @@ class EvidenceTests(unittest.TestCase):
         self.assertEqual(pack['status'],'insufficient_evidence')
         self.assertIsNone(synthesize(pack,entity='LINE-7',as_of='2026-10-30')['answer'])
 
+    def test_truncated_retrieval_never_confirms_a_retained_value(self):
+        from unittest.mock import patch
+        from harness.corpus import search
+        self.doc('a.md','100');self.doc('b.md','120')
+        index_corpus(self.docs,self.db)
+        one=evidence_pack(self.db,['FACT'],max_evidence=1)
+        char_limited=evidence_pack(self.db,['FACT'],max_chars=len(serialized(one))+150)
+        def limited_search(*args,**kwargs):
+            kwargs['limit']=1
+            return search(*args,**kwargs)
+        with patch('harness.evidence.search',side_effect=limited_search):
+            search_limited=evidence_pack(self.db,['FACT'],max_evidence=10)
+        for label,pack in [('count',one),('chars',char_limited),('search',search_limited)]:
+            with self.subTest(limit=label):
+                self.assertTrue(pack['truncated'])
+                self.assertEqual(pack['uncovered_queries'],[])
+                self.assertEqual(verify(pack)['status'],'verified')
+                report=synthesize(pack,entity='LINE-7',as_of='2026-10-30')
+                self.assertEqual(report['status'],'insufficient_evidence')
+                self.assertIsNone(report['answer'])
+                self.assertTrue(any(m.get('code')=='retrieval_truncated' for m in report['missing_evidence']))
+
+    def test_retained_conflict_and_independently_complete_scope(self):
+        self.doc('a.md','100');self.doc('b.md','120');self.doc('c.md','130')
+        pack=self.pack(max_evidence=2)
+        self.assertTrue(pack['truncated'])
+        self.assertEqual(synthesize(pack,entity='LINE-7',as_of='2026-10-30')['status'],'conflict')
+        for name in ('b.md','c.md'):
+            p=self.docs/name;p.write_text(p.read_text().replace('LINE-7','OTHER-8'))
+        index_corpus(self.docs,self.db)
+        pack=evidence_pack(self.db,['FACT'],entity='LINE-7',max_evidence=1)
+        self.assertFalse(pack['truncated'])
+        report=synthesize(pack,entity='LINE-7',as_of='2026-10-30')
+        self.assertEqual(report['status'],'supported')
+        self.assertEqual(report['retrieval_scope']['filters']['entity'],'LINE-7')
+
     def test_tampered_excerpt_location_hash_and_metadata(self):
         self.doc('a.md','10');pack=self.pack()
         self.assertEqual(verify({'evidence':[None]})['status'],'unverified')
@@ -98,6 +134,8 @@ class EvidenceTests(unittest.TestCase):
         report=aggregate_files([a,b],**config);report['calculation_contract']={'paths':[str(a),str(b)],'config':config}
         kwargs={'entity':'LINE-7','attribute':'limit','as_of':'2026-10-30','unit':'kg'}
         self.assertEqual(compare_calculation(pack,report,**kwargs)['status'],'verified')
+        truncated=copy.deepcopy(pack);truncated['truncated']=True
+        self.assertEqual(compare_calculation(truncated,report,**kwargs)['status'],'insufficient_evidence')
         tampered=json.loads(json.dumps(report));tampered['units']['amount']['unit']='USD'
         self.assertEqual(compare_calculation(pack,tampered,**kwargs)['status'],'unverified')
         self.doc('a.md','0.31');pack=self.pack()
