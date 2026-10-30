@@ -37,6 +37,12 @@ def overrides(arguments: list[str]) -> dict:
 
 
 class RoleConfigTests(unittest.TestCase):
+    def test_both_reviewer_bundles_require_citation_gate(self) -> None:
+        for path in (".codex/agents/reviewer.toml", "configs/inherited/agents/reviewer.toml"):
+            with self.subTest(path=path):
+                text = tomllib.loads((ROOT / path).read_text())["developer_instructions"]
+                self.assertIn("`evidence citations` on every answer citation before approving", text)
+
     def test_checked_in_inherited_bundle_does_not_force_model_or_effort(self) -> None:
         bundle = ROOT / "configs/inherited"
         config = tomllib.loads((bundle / "config.toml").read_text())
