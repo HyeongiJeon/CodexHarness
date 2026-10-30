@@ -80,6 +80,13 @@ def main() -> int:
     ib = sub.add_parser('intelligence-benchmark', help='local synthetic 100k/1m rows and 120-document benchmark; no AI calls')
     ib.add_argument('--output', type=Path, default=ROOT/'.harness/intelligence')
     ib.add_argument('--rows', default='100000,1000000')
+    pe = sub.add_parser('prose-evaluation',help='prepare isolated Korean prose inputs or score frozen real agent outputs; no model call')
+    pe.add_argument('action',choices=('prepare','score'))
+    pe.add_argument('--work-dir',type=Path,default=ROOT/'.harness/prose-evaluation/run')
+    pe.add_argument('--oracle',type=Path)
+    pe.add_argument('--answers',type=Path)
+    pe.add_argument('--audit',type=Path)
+    pe.add_argument('--output',type=Path)
     demo = sub.add_parser("demo", help="synthetic local web/data practice application")
     demo.add_argument("--port", type=int, default=8765)
     demo.add_argument("--host", default="127.0.0.1")
@@ -164,6 +171,16 @@ def main() -> int:
         report = run(args.output, counts)
         print(json.dumps(report, ensure_ascii=False, indent=2))
         return 0 if report['passed'] else 1
+    elif args.command == 'prose-evaluation':
+        from .prose_evaluation import prepare,score
+        if args.action=='prepare':
+            report=prepare(args.work_dir)
+        else:
+            if not args.oracle or not args.answers:
+                parser.error('score requires --oracle and --answers from a completed real trial')
+            report=score(args.work_dir,load_json(args.oracle),load_json(args.answers),load_json(args.audit) if args.audit else None)
+        if args.output:args.output.write_text(json.dumps(report,ensure_ascii=False,indent=2))
+        print(json.dumps(report,ensure_ascii=False,indent=2))
     elif args.command == 'corpus':
         from .corpus import inventory, index_corpus, search
         if args.corpus_command == 'inventory':
