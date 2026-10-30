@@ -57,6 +57,9 @@ class DocumentTests(unittest.TestCase):
         self.assertEqual(records[1]['text'],'Cell42')
         self.assertEqual(records[1]['locator']['cell'],1)
         self.assertEqual(records[1]['locator']['table'],1)
+        with zipfile.ZipFile(p,'w') as z:
+            z.writestr('word/document.xml','<w:document xmlns:w="urn:w"><w:body/></w:document>')
+        self.assertTrue(any(r['extraction_status']=='partial' for r in iter_segments(p)))
 
     def test_xlsx_inline_cell_formula_and_locator(self):
         p = self.root/'a.xlsx'; ns='http://schemas.openxmlformats.org/spreadsheetml/2006/main'

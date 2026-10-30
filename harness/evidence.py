@@ -52,8 +52,8 @@ def evidence_pack(db: Path, queries: list[str], *, question: str = '', max_evide
             if len(pack['evidence']) >= max_evidence:
                 pack['truncated'] = True
                 continue
-            # Add complete extraction excerpts; never cut a FACT record into a
-            # misleading partial JSON record solely to meet a context budget.
+            # Keep the candidate search slice intact; do not shorten it further
+            # to fit the pack. FACT records exceeding it remain incomplete.
             item = {**item, 'citation_id': f"{item['evidence_id']}:{item['excerpt_start']}:{item['excerpt_end']}"}
             pack['evidence'].append(item)
             if len(serialized(pack)) > max_chars - 100:
@@ -99,6 +99,9 @@ def verify(pack: dict) -> dict:
         raise ValueError('verification extraction cap must be 1..32000000')
     entries, by_source = [], {}
     for item in pack['evidence']:
+        if not isinstance(item, dict):
+            entries.append({'evidence_id':None,'verified':False,'reason':'Evidence entry must be an object'})
+            continue
         record = {'evidence_id': item.get('evidence_id'), 'verified': False}
         entries.append(record)
         try:

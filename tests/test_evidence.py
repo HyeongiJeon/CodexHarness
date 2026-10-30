@@ -44,6 +44,7 @@ class EvidenceTests(unittest.TestCase):
 
     def test_tampered_excerpt_location_hash_and_metadata(self):
         self.doc('a.md','10');pack=self.pack()
+        self.assertEqual(verify({'evidence':[None]})['status'],'unverified')
         for mutation in ('excerpt','locator','source_path','evidence_id','source_hash'):
             changed=copy.deepcopy(pack)
             changed['evidence'][0][mutation]={'line':99999} if mutation=='locator' else 'fabricated'

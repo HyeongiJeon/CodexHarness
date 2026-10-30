@@ -428,7 +428,7 @@ def iter_segments(path: Path, *, max_chars: int = 2_000_000,
             count += len(text)
             emitted = True
             yield record
-        if not emitted:
+        if count == 0:
             yield _record("", {"format": extension.lstrip(".")},
                           ["Document contains no extractable text"], "partial")
     except ExtractionLimit as exc:
