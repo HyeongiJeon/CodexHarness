@@ -124,7 +124,8 @@ def verify(pack: dict) -> dict:
                 header_parts, header_length = [], 0
                 for segment in iter_segments(Path(source), max_chars=pack.get('max_chars_per_document', 2_000_000)):
                     if segment['text'] and header_length < 12_000:
-                        header_parts.append(segment['text'][:12_000 - header_length])
+                        text = segment['text']
+                        header_parts.append(text[:12_000 - header_length] + ('' if segment['locator'].get('format') == 'text' or text.endswith(('\n','\r')) else '\n'))
                         header_length += len(segment['text'])
                     key = json.dumps(segment['locator'], ensure_ascii=False, sort_keys=True)
                     for item, record in pending.pop(key, []):
@@ -137,7 +138,7 @@ def verify(pack: dict) -> dict:
                 for unresolved in pending.values():
                     for _, record in unresolved:
                         record['reason'] = 'locator not present in source extraction'
-                original_metadata, _ = _metadata('\n'.join(header_parts), None, '')
+                original_metadata, _ = _metadata(''.join(header_parts), None, '')
                 for item, record, _ in items:
                     supplied = item.get('metadata', {})
                     record['metadata_verified'] = all(supplied.get(k) == v for k, v in original_metadata.items())

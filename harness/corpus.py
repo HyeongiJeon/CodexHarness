@@ -170,7 +170,7 @@ def index_corpus(root: Path, db_path: Path, metadata: dict | None = None, max_ch
                         if not text:
                             continue
                         if header_length < 12_000:
-                            header_parts.append(text[:12_000 - header_length])
+                            header_parts.append(text[:12_000 - header_length] + ('' if segment['locator'].get('format') == 'text' or text.endswith(('\n','\r')) else '\n'))
                             header_length += len(text)
                         locator_json = json.dumps(segment["locator"], ensure_ascii=False, sort_keys=True)
                         evidence_id = "ev-" + hashlib.sha256((document_id + str(record["source_hash"]) + locator_json).encode()).hexdigest()[:32]
@@ -186,7 +186,7 @@ def index_corpus(root: Path, db_path: Path, metadata: dict | None = None, max_ch
                         raise ValueError(f"source changed during indexing: {source}")
                 except OSError as exc:
                     raise ValueError(f"source unavailable after indexing: {source}") from exc
-                values, origins = _metadata("\n".join(header_parts), metadata, relative)
+                values, origins = _metadata("".join(header_parts), metadata, relative)
                 limitations = list(dict.fromkeys(limitations))
                 conn.execute("UPDATE documents SET extraction_status=?,limitations=?,metadata=?,metadata_sources=?,document_date=?,version=?,status=?,effective_from=?,effective_to=?,entity=? WHERE document_id=?", (
                     extraction_status, json.dumps(limitations, ensure_ascii=False), json.dumps(values, ensure_ascii=False), json.dumps(origins), *(values[key] for key in METADATA_FIELDS), document_id))

@@ -135,6 +135,9 @@ class CorpusTests(unittest.TestCase):
         row = search(self.db, "keyword")["results"][0]
         self.assertIsNone(row["metadata"]["document_date"])
         self.assertEqual(search(self.db, "keyword", date_from="2000-01-01")["results"], [])
+        self.write('b.md','padding\n'*20+'status: final\ndocument_date: 2026-01-01\nkeyword\n')
+        index_corpus(self.root,self.db)
+        self.assertEqual(len(search(self.db,'keyword',status='final',date_from='2026-01-01')['results']),1)
 
     def test_identifier_boundaries_avoid_numeric_distractors(self):
         self.write('a.txt','BASE-420 XBASE-42 BASE-42-OLD\ncorrect: BASE-42\n')
