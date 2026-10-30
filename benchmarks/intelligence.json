@@ -362,7 +362,22 @@
     "exception_applicability": "not established",
     "source_instruction_policy": "untrusted data",
     "total_model_tokens": null,
-    "token_limitation": "Task-only model usage could not be isolated; deterministic benchmark itself makes zero model calls."
+    "token_limitation": "Synthesizer session totals include system/tools/cached tokens; pack-only tokens and this trial share of reused Auditor context are not isolated. Deterministic benchmark makes zero model calls.",
+    "synthesizer_observed_context_usage": {
+      "input_tokens": 62737,
+      "cached_input_tokens": 57472,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 727,
+      "reasoning_output_tokens": 54,
+      "total_tokens": 63464
+    },
+    "actual_model_observed": "gpt-6.1-sol",
+    "actual_tool_trace_checked": {
+      "task_source_files_read": 1,
+      "raw_corpus_files_read": 0,
+      "answer_files_read": 0,
+      "output_files_written": 1
+    }
   },
   "notes": [
     "Linux isolated Python worker peak RSS includes interpreter. No memory hard cap is inferred.",
@@ -375,5 +390,14 @@
     "peak_rss_kib": 34044,
     "document_count": 120,
     "cache_kib": 8192
+  },
+  "publication_verification": {
+    "code_commit": "d98310643df09f224fc23bd975a5f09d5d56fa24",
+    "anonymous_https_clone": true,
+    "make_check_exit": 0,
+    "small_benchmark_rows": 1000,
+    "small_benchmark_exit": 0,
+    "tracked_clone_tree_clean": true,
+    "large_generated_inputs_committed": false
   }
 }
