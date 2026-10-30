@@ -30,6 +30,46 @@ def main() -> int:
     task.add_argument("plan", type=Path)
     data = sub.add_parser("data", help="clean a local sales-schema CSV and print exact aggregates/issues")
     data.add_argument("input", type=Path)
+    data.add_argument("files", nargs="*", type=Path)
+    data.add_argument("--config", type=Path)
+    data.add_argument("--sample-rows", type=int, default=1000)
+    data.add_argument("--encoding")
+    data.add_argument("--value")
+    data.add_argument("--group-by", action="append")
+    data.add_argument("--id-column")
+    corpus = sub.add_parser("corpus", help="local inventory, index, retrieval and bounded evidence packs")
+    corp = corpus.add_subparsers(dest="corpus_command", required=True)
+    inv = corp.add_parser("inventory")
+    inv.add_argument("root", type=Path)
+    inv.add_argument("--limit", type=int, default=1000)
+    idx = corp.add_parser("index")
+    idx.add_argument("root", type=Path)
+    idx.add_argument("--db", type=Path, required=True)
+    idx.add_argument("--metadata", type=Path)
+    idx.add_argument("--max-chars", type=int, default=2_000_000)
+    for command in ("search", "evidence-pack"):
+        p = corp.add_parser(command)
+        p.add_argument("--db", type=Path, required=True)
+        p.add_argument("--query", required=True, action="append" if command == "evidence-pack" else "store")
+        p.add_argument("--mode", choices=("literal", "regex", "fts"), default="literal")
+        for name in ("status", "date-from", "date-to", "entity"):
+            p.add_argument('--' + name)
+        p.add_argument("--max-chars", type=int, default=16000 if command == "evidence-pack" else 600)
+        if command == "search":
+            p.add_argument("--limit", type=int, default=20)
+        else:
+            p.add_argument("--max-evidence", type=int, default=12)
+            p.add_argument("--question", default="")
+            p.add_argument("--output", type=Path)
+    ev = sub.add_parser("evidence", help="rehash/re-extract originals and reconcile explicit source facts")
+    es = ev.add_subparsers(dest="evidence_command", required=True)
+    es.add_parser("verify").add_argument("pack", type=Path)
+    sy = es.add_parser("synthesize")
+    sy.add_argument("pack", type=Path)
+    sy.add_argument("--entity", required=True)
+    sy.add_argument("--as-of", required=True)
+    sy.add_argument("--attribute")
+    sub.add_parser("resources", help="read-only CPU/memory/disk observations")
     demo = sub.add_parser("demo", help="synthetic local web/data practice application")
     demo.add_argument("--port", type=int, default=8765)
     demo.add_argument("--host", default="127.0.0.1")
@@ -78,8 +118,59 @@ def main() -> int:
     elif args.command == "data":
         from dataclasses import asdict
         from .data import clean_sales_csv, aggregate_by_region
-        result = clean_sales_csv(args.input.read_text(encoding="utf-8-sig"))
-        print(json.dumps({"accepted": len(result.rows), "issues": [asdict(x) for x in result.issues], "regions": aggregate_by_region(result.rows)}, indent=2, ensure_ascii=False))
+        operation = str(args.input)
+        if operation == 'profile':
+            from .large_data import profile_file
+            if len(args.files) != 1:
+                parser.error('data profile requires exactly one file')
+            report = profile_file(args.files[0], args.sample_rows, args.encoding)
+        elif operation == 'aggregate':
+            from .large_data import aggregate_files
+            config = load_json(args.config) if args.config else {}
+            for key in ('value', 'group_by', 'id_column', 'encoding'):
+                if getattr(args, key) is not None:
+                    config[key] = getattr(args, key)
+            if 'value' not in config:
+                parser.error('data aggregate requires --value or config.value')
+            config.setdefault('group_by', [])
+            report = aggregate_files(args.files, **config)
+            report['calculation_contract'] = {'paths': [str(p.resolve()) for p in args.files], 'config': config}
+        else:
+            result = clean_sales_csv(args.input.read_text(encoding="utf-8-sig"))
+            report = {"accepted": len(result.rows), "issues": [asdict(x) for x in result.issues], "regions": aggregate_by_region(result.rows)}
+        print(json.dumps(report, indent=2, ensure_ascii=False))
+    elif args.command == 'resources':
+        from .sources import resources
+        print(json.dumps(resources(), indent=2))
+    elif args.command == 'corpus':
+        from .corpus import inventory, index_corpus, search
+        if args.corpus_command == 'inventory':
+            if args.limit < 1:
+                parser.error('inventory limit must be positive')
+            count, files = 0, []
+            for item in inventory(args.root):
+                count += 1
+                if len(files) < args.limit:
+                    files.append(item)
+            report = {'file_count': count, 'files': files, 'truncated': count > len(files)}
+        elif args.corpus_command == 'index':
+            report = index_corpus(args.root, args.db, load_json(args.metadata) if args.metadata else None, args.max_chars)
+        else:
+            filters = {k: getattr(args, k) for k in ('status', 'date_from', 'date_to', 'entity')}
+            if args.corpus_command == 'search':
+                report = search(args.db, args.query, mode=args.mode, limit=args.limit, max_chars=args.max_chars, **filters)
+            else:
+                from .evidence import evidence_pack, serialized
+                report = evidence_pack(args.db, args.query, question=args.question, mode=args.mode, max_evidence=args.max_evidence, max_chars=args.max_chars, **filters)
+                if args.output:
+                    args.output.write_text(serialized(report), encoding='utf-8')
+        print(json.dumps(report, indent=2, ensure_ascii=False))
+    elif args.command == 'evidence':
+        from .evidence import verify, synthesize
+        pack = load_json(args.pack)
+        report = verify(pack) if args.evidence_command == 'verify' else synthesize(pack, entity=args.entity, as_of=args.as_of, attribute=args.attribute)
+        print(json.dumps(report, indent=2, ensure_ascii=False))
+        return 0 if report['status'] in {'verified', 'supported'} else 1
     elif args.command == "benchmark":
         from .benchmark import run
         return run(args.mode, args.routing, args.model, args.timeout)
@@ -91,6 +182,15 @@ def main() -> int:
             print(log, file=sys.stderr)
         return 0 if passed else 1
     return 0
+
+
+def load_json(path: Path) -> dict:
+    if path.stat().st_size > 32 * 1024 * 1024:
+        raise ValueError('configuration/evidence JSON exceeds 32 MiB; use streaming data or a smaller evidence pack')
+    value = json.loads(path.read_text(encoding='utf-8-sig'))
+    if not isinstance(value, dict):
+        raise ValueError('configuration/evidence must be a JSON object')
+    return value
 
 
 if __name__ == "__main__":
