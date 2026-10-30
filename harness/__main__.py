@@ -64,6 +64,9 @@ def main() -> int:
     ev = sub.add_parser("evidence", help="rehash/re-extract originals and reconcile explicit source facts")
     es = ev.add_subparsers(dest="evidence_command", required=True)
     es.add_parser("verify").add_argument("pack", type=Path)
+    ci = es.add_parser("citations", help="auditor pre-check: cited IDs in pack, current quotes/metadata, pack complete")
+    ci.add_argument("pack", type=Path)
+    ci.add_argument("--cite", action="append", required=True)
     sy = es.add_parser("synthesize")
     sy.add_argument("pack", type=Path)
     sy.add_argument("--entity", required=True)
@@ -205,10 +208,12 @@ def main() -> int:
                     args.output.write_text(serialized(report), encoding='utf-8')
         print(json.dumps(report, indent=2, ensure_ascii=False))
     elif args.command == 'evidence':
-        from .evidence import verify, synthesize, compare_calculation
+        from .evidence import verify, synthesize, compare_calculation, check_citations
         pack = load_json(args.pack)
         if args.evidence_command == 'verify':
             report = verify(pack)
+        elif args.evidence_command == 'citations':
+            report = check_citations(pack, args.cite)
         elif args.evidence_command == 'compare':
             report = compare_calculation(pack, load_json(args.calculation),entity=args.entity,attribute=args.attribute,as_of=args.as_of,unit=args.unit)
         else:

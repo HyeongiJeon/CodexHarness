@@ -143,7 +143,8 @@ def verify(pack: dict) -> dict:
                         record['reason'] = 'locator not present in source extraction'
                 original_metadata, _ = _metadata(''.join(header_parts), None, '')
                 for item, record, _ in items:
-                    supplied = item.get('metadata', {})
+                    supplied = item.get('metadata')
+                    supplied = supplied if isinstance(supplied, dict) else {}
                     record['metadata_verified'] = all(supplied.get(k) == v for k, v in original_metadata.items())
                     if not record['metadata_verified']:
                         record['metadata_limitation'] = 'Metadata differs from source header or depends on an unaudited supplied manifest'
@@ -157,6 +158,22 @@ def verify(pack: dict) -> dict:
     return {'status': 'verified' if entries and valid == len(entries) else 'unverified',
             'verified': valid, 'total': len(entries), 'results': entries,
             'limitations': ['Exact extracted quotes do not certify semantic claims, authenticity, or external approval.']}
+
+
+def check_citations(pack: dict, citations: list) -> dict:
+    """Deterministic pre-approval gate: cited IDs exist in the pack, quotes and metadata
+    match current originals, and the pack is complete. Says nothing about whether the
+    quotes semantically support a claim; that stays with the independent reviewer."""
+    by_id = {e.get('citation_id', e.get('evidence_id')): e for e in pack.get('evidence', []) if isinstance(e, dict)}
+    cited = [c for c in citations if isinstance(c, str)]
+    missing = [c for c in citations if not isinstance(c, str) or c not in by_id]
+    report = verify({**pack, 'evidence': [by_id[c] for c in cited if c in by_id]})
+    unverified = [r for r in report['results'] if not r['verified'] or not r.get('metadata_verified')]
+    complete = not pack.get('truncated') and not pack.get('uncovered_queries') and pack.get('corpus_complete') is not False
+    ok = bool(citations) and not missing and not unverified and complete
+    return {'status': 'verified' if ok else 'unverified', 'citations': len(citations), 'missing_from_pack': missing,
+            'unverified_or_metadata_changed': [r.get('evidence_id') for r in unverified], 'pack_complete': complete,
+            'verification': report}
 
 
 def extract_facts(pack: dict) -> tuple[list[dict], list[dict]]:

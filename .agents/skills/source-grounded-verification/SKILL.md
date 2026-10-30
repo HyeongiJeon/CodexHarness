@@ -8,6 +8,7 @@ Original project and exam rules take precedence. No Astra, external transfers, c
 
 **Inputs:** Evidence Pack, candidate answer/citation IDs, original source access and saved calculation contracts.
 **Procedure:**
+0. Before approving any answer run `python3 -m harness evidence citations PACK.json --cite CITATION_ID ...` (all answer citations). Any missing_from_pack, changed hash/quote/metadata or incomplete pack means do not approve; rebuild a complete pack containing evidence found by extra search. This is a deterministic provenance gate only; whether quotes support each claim is your independent semantic judgment.
 1. Work independently of the implementation/synthesizer context when authorized. Run `python3 -m harness evidence verify PACK.json` against current originals.
 2. Check source hashes, actual locator and exact extracted slice; verify document date/version/status against original header or separately audited manifest.
    Separately inspect pack truncation, missing queries and the declared search scope. Valid quotations from a partial pack cannot certify a complete answer; preserved conflicts remain reportable.

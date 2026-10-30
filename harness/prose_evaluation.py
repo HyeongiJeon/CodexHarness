@@ -10,7 +10,7 @@ import json
 from pathlib import Path
 import shutil
 
-from .evidence import verify, serialized
+from .evidence import check_citations, serialized
 from .roles import ROOT
 from .sources import hash_file
 
@@ -23,7 +23,7 @@ def prepare(work: Path, fixture: Path = ROOT/'fixtures/prose') -> dict:
     shutil.copytree(fixture/'corpus',inputs/'corpus')
     shutil.copyfile(fixture/'questions.json',inputs/'questions.json')
     (work/'packs').mkdir();(work/'outputs').mkdir()
-    files=sorted((inputs/'corpus').glob('*'))
+    files=sorted((inputs/'corpus').rglob('*'))
     manifest={'documents':[{ 'path':p.relative_to(inputs).as_posix(),'sha256':hash_file(p),'bytes':p.stat().st_size} for p in files if p.is_file()],
               'question_hash':hash_file(inputs/'questions.json'),
               'actor_inputs':['inputs/corpus/','inputs/questions.json'],
@@ -56,8 +56,10 @@ def score(work: Path, oracle: dict, answers: dict, audit: dict | None = None) ->
     """
     work=work.resolve()
     manifest=json.loads((work/'manifest.json').read_text())
-    if hash_file(work/'inputs/questions.json')!=manifest['question_hash'] or any(
-            hash_file(work/'inputs'/entry['path'])!=entry['sha256'] for entry in manifest['documents']):
+    expected_files={entry['path'] for entry in manifest['documents']}
+    current_files={p.relative_to(work/'inputs').as_posix() for p in (work/'inputs/corpus').rglob('*') if p.is_file()}
+    if (expected_files!=current_files or hash_file(work/'inputs/questions.json')!=manifest['question_hash'] or any(
+            hash_file(work/'inputs'/entry['path'])!=entry['sha256'] for entry in manifest['documents'])):
         raise ValueError('Frozen evaluation inputs changed; trial is invalid')
     ledger=json.loads((work/'retrieval.json').read_text())
     retrieval={q['id']:q for q in ledger['questions']}
@@ -87,16 +89,17 @@ def score(work: Path, oracle: dict, answers: dict, audit: dict | None = None) ->
         semantic_ok=status==expected_status and values_ok
         if expected_status=='insufficient_evidence':semantic_ok=semantic_ok and bool(actual.get('missing_evidence'))
         if expected_status=='conflict':semantic_ok=semantic_ok and bool(actual.get('conflicts'))
-        by_id={e.get('citation_id',e['evidence_id']):e for e in pack['evidence']}
         cited=actual.get('citations',[])
+        by_id={e.get('citation_id',e['evidence_id']):e for e in pack['evidence']}
         selected=[by_id[c] for c in cited if isinstance(c,str) and c in by_id]
-        quote_audit=verify({**pack,'evidence':selected})
-        verified=quote_audit['verified']
-        sources_ok=bool(cited) and len(selected)==len(cited) and verified==len(cited)
+        gate=check_citations(pack,cited)
+        quote_audit=gate['verification'];verified=len(selected)-len(gate['unverified_or_metadata_changed'])
+        # truncation/completeness is a separate pack property, not a citation-source failure
+        sources_ok=bool(cited) and not gate['missing_from_pack'] and not gate['unverified_or_metadata_changed']
+        supported_complete=gate['pack_complete']
         citation_hits=_anchors(anchors,selected)
-        supported_complete=not pack.get('truncated') and not pack.get('uncovered_queries') and pack.get('corpus_complete') is not False
-        grounded=semantic_ok and sources_ok and all(citation_hits)
-        false_certain=status=='supported' and (not grounded or not supported_complete)
+        grounded=semantic_ok and sources_ok and supported_complete and all(citation_hits)
+        false_certain=status=='supported' and not grounded
         rfail=not all(retrieval_hits);pfail=all(retrieval_hits) and not all(pack_hits)
         sfail=all(pack_hits) and not semantic_ok
         audit_row=audited.get(qid,{})
