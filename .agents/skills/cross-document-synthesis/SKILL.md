@@ -13,7 +13,8 @@ Original project and exam rules take precedence. No Astra, external transfers, c
 2. Reconcile entity IDs, document date/version and effective interval separately. Exclude drafts and expired/future rules; do not infer supersession from newest date alone.
 3. For explicit source FACT records use `evidence synthesize PACK.json --entity ID --as-of YYYY-MM-DD [--attribute NAME]`; inspect Fact/Conflict/Missing Evidence outputs and conditional branches.
 4. Free prose requires Codex interpretation from the small pack, labeled as inference where appropriate and reviewed by the existing reviewer/Evidence Auditor. Do not rewrite source files into fabricated FACT records.
-5. Release answer plus key citations, conditions, conflicts and limits. Missing or known partial evidence requires broader retrieval or an inability-to-confirm result.
+5. Cite the pack's `citation_id` (not bare `evidence_id`); evidence found by an extra search must first be added to a rebuilt pack, otherwise it is unverifiable. The auditor must check that each citation resolves in the pack and supports its claim.
+6. Release answer plus key citations, conditions, conflicts and limits. Missing or known partial evidence requires broader retrieval or an inability-to-confirm result.
 **Output contract:** Answer or inability to confirm, source facts, cited evidence IDs, conflicts, missing evidence and separately labeled inferences.
 **Tools:** Local evidence CLI and permitted Codex specialists; no external inference API.
 **Verification:** Independent auditor reopens actual locations, checks applicability and recalculates any numerical claim.
