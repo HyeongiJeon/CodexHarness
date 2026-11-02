@@ -59,7 +59,7 @@ flowchart LR
 ```bash
 ./CodexHarness/start.sh dev|explain|optimize|qa|preview [--project DIR] [--dry-run] [--exam]
 ```
-Codex가 **시작되기 전에** 프로젝트 탐지(`--project` 또는 현재 git 루트)·`validate`·스택에 맞는 Skill 설치(기존 파일 보존, 반복 실행 안전)·`gpt-6.1-sol` 카탈로그 확인(없으면 오류, 대체 모델 없음)·Skill 인식 확인(`codex debug prompt-input`, 모델 호출 없음)을 하고 보고한 뒤 세션을 시작한다. 이미 실행 중인 Codex(Cofa 등)에는 소급 적용되지 않는다: `--dry-run`으로 준비하고 새 세션에서 시작한다.
+Codex가 **시작되기 전에** 프로젝트 탐지(`--project` 또는 현재 git 루트)·`validate`·스택에 맞는 Skill 설치(기존 파일 보존, 반복 실행 안전)·`gpt-6.1-sol` 모델 카탈로그 참고 확인(목록에 없어도 실행을 차단하지 않으며, 실제 호출 실패 시 다른 모델로 대체하지 않음)·Skill 인식 확인(`codex debug prompt-input`, 모델 호출 없음)을 하고 보고한 뒤 세션을 시작한다. 이미 실행 중인 Codex(Cofa 등)에는 소급 적용되지 않는다: `--dry-run`으로 준비하고 새 세션에서 시작한다.
 
 | 모드 | 내용 | 강제되는 것 / 지침뿐인 것 |
 |---|---|---|
