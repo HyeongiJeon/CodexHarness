@@ -40,6 +40,12 @@
 **CORS**: `web-probe --origin <페이지 origin> --path /api/...` 의 `access_control_allow_origin`. 같은 origin 프록시를 쓰면 필요 없다.
 **HMR/WebSocket**: HTTP 프로브로 확인 불가. 콘솔의 `WebSocket connection failed`를 사용자에게 요청. 개발 서버 HMR 포트/`clientPort` 설정 [가정]; 대안은 빌드 후 정적 서빙.
 
+### 4-1. 기준선 서버 운영 절차 (포트 충돌 포함)
+1. 앱이 이미 해당 포트를 쓰고 있으면 기준선을 **같은 포트에 띄울 수 없다**(`preview-baseline`이 "Something already listens on port ..." 오류와 해결 방법을 출력). 선택지: (a) 다른 포트(`--port 8781`)로 띄우고 미리보기의 포트 입력을 그 값으로 바꿔 확인, 또는 (b) 앱을 중지 → 기준선 실행 → 확인 후 중지 → **앱을 원래 명령으로 재시작**.
+2. (b)를 택하면 앱의 원래 실행 명령과 포트를 먼저 기록해 둔다(`ss -ltnp | grep :<포트>`로 프로세스 확인 후 사용자가 시작한 프로세스만 종료).
+3. 기준선은 포그라운드에서 실행하고 Ctrl-C로 종료한다. 종료 뒤 `ss -ltnp`로 포트가 비었는지 확인하고 앱을 재시작한 뒤 `web-probe`로 복구를 확인한다.
+4. 기준선이 보이는지는 사용자의 브라우저 확인이 필요하다. 미리보기가 어떤 포트/주소를 어떻게 연결하는지는 Cofa에서 검증되지 않았으므로 위 절차는 일반적인 포트 사용 절차일 뿐 Cofa 동작의 단정이 아니다 [가정].
+
 ## 5. 사용자 수동 브라우저 확인 절차
 1. 미리보기를 열고 개발자 도구(F12) → Console: **첫 번째 빨간 오류**의 전문을 복사.
 2. Network: 빨간(실패)·`(blocked)`·HTML로 응답한 JS/API 행의 URL·Status·Content-Type.

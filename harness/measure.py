@@ -56,15 +56,16 @@ def measure(argv: list[str], repeat: int = 5, warmup: int = 1, timeout: float = 
     report: dict = {"label": label, "argv": argv, "cwd": str(cwd) if cwd else os.getcwd(), "repeat": repeat, "warmup": warmup,
                     "platform": os.uname().sysname, "runs": runs}
     if any(r.get("timeout") for r in runs):
-        report.update(status="timeout")
+        report.update(status="timeout", reason=f"{sum(1 for r in runs if r.get('timeout'))}/{len(runs)} runs exceeded {timeout}s")
+        return report
+    errors = [r["error"] for r in runs if "error" in r]
+    if errors:
+        report.update(status="failed", reason=f"{len(errors)}/{len(runs)} runs failed to start: {errors[0]}")
         return report
     secs = [r["seconds"] for r in runs]
     report["seconds"] = {"min": min(secs), "median": statistics.median(secs), "max": max(secs),
                          "stdev": statistics.pstdev(secs) if len(secs) > 1 else 0.0}
     report["max_rss_kb"] = max(r["max_rss_kb"] for r in runs)
-    if any("error" in r for r in runs):
-        report.update(status="failed", reason=runs[0]["error"])
-        return report
     report["exit_codes"] = sorted({r["exit"] for r in runs})
     hashes = {r["stdout_sha256"] for r in runs}
     report["output_stable"] = len(hashes) == 1

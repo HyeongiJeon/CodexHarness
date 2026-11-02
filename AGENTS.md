@@ -16,7 +16,7 @@ Keep only acceptance criteria, key decisions, dependency/status summaries, and i
 5. Integration: lead reads diffs, executes checks against integrated code, and records exact command, exit status, and limitations. Worker self-reports are insufficient.
 6. Delivery: check required artifacts, execution instructions, known limitations and Git state. Never claim an unperformed check passed.
 
-Use available native subagent tools; custom role selector only if exposed. If model/role selection is unavailable, send the role instructions to a fresh agent inheriting the verified parent model and record the fallback. Never claim routing was applied without runtime evidence. If subagents are forbidden, work sequentially and report that limitation.
+Use available native subagent tools; custom role selector only if exposed. If model/role selection is unavailable, send the role instructions to a fresh `gpt-6.1-sol` agent and record that fallback. The only allowed model is `gpt-6.1-sol` for every main session and subagent: never substitute another model, and report an error if it is unavailable. Never claim a model/role setting was applied without runtime evidence. If subagents are forbidden, work sequentially and report that limitation.
 
 ## Large data and document intelligence
 For large CSV/JSONL, use `data profile` and disk-backed `data aggregate`; the old `data FILE` interface is a small synthetic sales example. For many documents, explorer runs `corpus inventory/index/search` in owned local output paths. Pass bounded Evidence Packs, source paths and citation IDs between agents, never entire corpora. Use the synthesizer only when cross-document interpretation is needed; the existing reviewer also serves as independent Evidence Auditor.

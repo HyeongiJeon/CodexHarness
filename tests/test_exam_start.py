@@ -39,7 +39,7 @@ class ExamStartContractTests(unittest.TestCase):
             self.assertIn(phrase, self.text)
         self.assertNotIn("현재 과제를 진행해줘", self.text)
         import tomllib
-        for path in (".codex/agents/lead.toml", "configs/inherited/agents/lead.toml"):
+        for path in (".codex/agents/lead.toml",):
             instructions = tomllib.loads((ROOT / path).read_text())["developer_instructions"]
             self.assertIn("only after the user approves that scope", instructions)
 

@@ -1,3 +1,5 @@
+> **Historical research (2026-10-30).** It discusses Terra/Luna routing options that CodexHarness no longer uses. The current policy is `gpt-6.1-sol` only for every main session and subagent, with no routing and no fallback. Kept unchanged below as evidence of what was investigated.
+
 # Codex harness research
 
 Verified on **2026-10-30** against official OpenAI documentation, the installed **`codex-cli 0.163.0`**, and public `openai/codex` source. This is an implementation reference for the repository harness, not a claim that every documented model is enabled for this account.

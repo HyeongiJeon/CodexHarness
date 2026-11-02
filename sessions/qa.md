@@ -11,6 +11,6 @@
 | 회귀·경계 | qa | 빈 입력, 큰 입력, 중복, 동시 요청, 재시작 후 데이터 |
 | 독립 리뷰 | reviewer | 실제 diff·실행 결과 검토(`independent-code-review`) |
 
-절차: 요구사항→수용 기준 ID→테스트 계획→실행→결함 재현→보고. `python3 -m harness state show`로 DEV 변경과 이전 결과를 읽되 `stale` 결과는 재실행한다.
+절차: 요구사항→수용 기준 ID→테스트 계획→실행→결함 재현→보고. `python3 -m harness state show`로 DEV 변경과 이전 결과를 읽되 `stale` 결과는 재실행하고 `not_integrated`(미병합 worktree) 결과는 현재 프로젝트의 결과로 취급하지 않는다.
 
 보고서(`templates/qa-report.md` 형식): 항목마다 **PASS / FAIL / UNVERIFIED**, 정확한 재현 명령, 기대 결과, 실제 결과, 심각도, 영향 범위. HTTP 테스트가 통과해도 **실제 브라우저 렌더링을 확인하지 못했으면 UI 항목은 UNVERIFIED**이며, 사용자가 직접 할 수동 UI 확인 절차를 함께 제공한다. 결함은 `state add --session qa --kind defect --text ...`, 결과 요약은 `--kind qa-result`로 남긴다.

@@ -15,7 +15,7 @@ import subprocess
 import sys
 import time
 
-from .roles import ROOT, launch_overrides
+from .roles import MODEL, ROOT, launch_overrides
 
 SPEC = """Synthetic benchmark, not an exam answer. Python stdlib only. Work only here.
 No network, external uploads, git push, browser/GUI automation, credentials or CLI updates.
@@ -242,16 +242,14 @@ def augment_local_sessions(evidence: dict) -> dict:
     return evidence
 
 
-def run(mode: str, routing: str, model: str, timeout: int) -> int:
-    if "astra" in model.lower():
-        raise ValueError("Astra is prohibited")
+def run(mode: str, timeout: int) -> int:
     if timeout <= 0:
         raise ValueError("timeout must be positive")
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
     run_dir = ROOT / ".harness/runs" / f"{stamp}-{mode}"
     project = run_dir / "project"
     initialize(project, mode == "smoke")
-    bundle = ROOT / (".codex" if routing == "routed" else "configs/inherited")
+    bundle = ROOT / ".codex"
     if mode == "smoke":
         prompt = """Run a REAL native subagent smoke test here. Do not implement applications.
 Spawn requirements and explorer as TWO fresh independent subagents (fork_context=false),
@@ -271,7 +269,7 @@ No network, browser tools, push, updates, secrets or external services."""
             prompt += "Spawn three fresh independent agents before waiting: frontend owns ONLY web/, data owns ONLY analysis/, core owns ONLY repair/. Use configured agent_type when available. Do not send one task's output to another worker. Lead integrates and executes focused checks, independently reads actual files. Activate additional fresh QA/reviewer only when a consequential defect or unresolved uncertainty warrants it; keep checks focused and avoid repeating equivalent checks. No nested delegation."
         else:
             prompt += "Execute all three tasks yourself, sequentially. Do not spawn any agents; this is the single-agent baseline."
-    cmd = ["codex", "exec", "-C", str(project), "-m", model, "--json", *launch_overrides(bundle)]
+    cmd = ["codex", "exec", "-C", str(project), "-m", MODEL, "--json", *launch_overrides(bundle)]
     if mode == "single":
         cmd += ["-c", "agents.enabled=false"]
     (run_dir / "prompt.txt").write_text(prompt)
@@ -309,7 +307,7 @@ No network, browser tools, push, updates, secrets or external services."""
     required_spawns = 0 if mode == "single" else (2 if mode == "smoke" else 3)
     orchestration = orchestration_verified(evidence, required_spawns)
     success = passed and not timed_out and process.returncode == 0 and orchestration
-    summary = {"mode": mode, "routing_requested": routing, "model_requested": model, "elapsed_seconds": round(elapsed, 3), "cli_exit_code": process.returncode, "timed_out": timed_out, "checks": checks, "acceptance_passed": passed, "orchestration_verified": orchestration, "success": success, "changed_files": changed, "fix_retries": None, "file_conflicts": "not automatically measurable; inspect agent writes and owned paths", **evidence}
+    summary = {"mode": mode, "model_requested": MODEL, "elapsed_seconds": round(elapsed, 3), "cli_exit_code": process.returncode, "timed_out": timed_out, "checks": checks, "acceptance_passed": passed, "orchestration_verified": orchestration, "success": success, "changed_files": changed, "fix_retries": None, "file_conflicts": "not automatically measurable; inspect agent writes and owned paths", **evidence}
     (run_dir / "summary.json").write_text(json.dumps(summary, indent=2))
     print(json.dumps({"run_dir": str(run_dir), "success": success, "elapsed_seconds": summary["elapsed_seconds"], "subagent_count": evidence["subagent_count"]}, indent=2), flush=True)
     return 0 if success else 1

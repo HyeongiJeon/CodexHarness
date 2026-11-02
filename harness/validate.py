@@ -2,7 +2,7 @@
 from pathlib import Path
 import re
 import tomllib
-from .roles import ROOT, ROLES
+from .roles import MODEL, ROOT, ROLES
 
 
 def validate(root: Path = ROOT) -> list[str]:
@@ -19,9 +19,11 @@ def validate(root: Path = ROOT) -> list[str]:
                 errors.append(f"mode {mode}: unknown skill {skill}")
     if not (root / "docs/preview/cofa-runbook.md").is_file():
         errors.append("missing docs/preview/cofa-runbook.md")
-    for bundle in (root / ".codex", root / "configs/inherited"):
+    for bundle in (root / ".codex",):
         try:
             config = tomllib.loads((bundle / "config.toml").read_text())
+            if config.get("model") != MODEL:
+                errors.append(f"{bundle}: main model must be {MODEL}")
             for name in ROLES:
                 role = config["agents"][name]
                 path = (bundle / role["config_file"]).resolve()
@@ -30,10 +32,10 @@ def validate(root: Path = ROOT) -> list[str]:
                 for key in ("name", "description", "developer_instructions"):
                     if not data.get(key):
                         errors.append(f"{path}: missing {key}")
-                if "astra" in data.get("model", "").lower():
-                    errors.append(f"{path}: prohibited model")
-                if bundle.name == "inherited" and "model" in data:
-                    errors.append(f"{path}: inherited role forces a model")
+                if data.get("model") != MODEL:
+                    errors.append(f"{path}: role model must be exactly {MODEL}, got {data.get('model')!r}")
+                if not data.get("model_reasoning_effort"):
+                    errors.append(f"{path}: missing model_reasoning_effort")
         except (OSError, ValueError, KeyError) as exc:
             errors.append(f"{bundle}: {exc}")
     skills = list((root / ".agents/skills").glob("*/SKILL.md"))

@@ -2,10 +2,11 @@ import argparse
 import json
 import os
 from pathlib import Path
+import shutil
 import subprocess
 import sys
 
-from .roles import ROOT, ROLES, launch_overrides, render_config, role_text
+from .roles import MODEL, ROOT, ROLES, launch_overrides, render_config, role_text
 
 
 def main() -> int:
@@ -17,21 +18,16 @@ def main() -> int:
     role.add_argument("name", choices=ROLES)
     config = sub.add_parser("configure", help="generate a bundle in a NEW directory; never edits user config")
     config.add_argument("destination", type=Path)
-    config.add_argument("--mode", choices=("routed", "inherited"), default="inherited")
     install = sub.add_parser("install-skills", help="copy project skills, preserving every existing skill and AGENTS.md")
     install.add_argument("--project", type=Path, required=True)
     install.add_argument("--skill", action="append", help="copy only this skill; repeat as needed (default all)")
     launch = sub.add_parser("launch", help="start supplied CLI with explicit role config paths")
     launch.add_argument("--project", type=Path, default=Path.cwd())
-    launch.add_argument("--mode", choices=("routed", "inherited"), default="inherited")
-    launch.add_argument("--model", help="explicit verified main model; omitted means inherit installed default")
     launch.add_argument("--bundle", type=Path, help="explicit generated bundle directory instead of checked-in mode")
     launch.add_argument("--dry-run", action="store_true")
     start = sub.add_parser("start", help="one-command specialist session: dev | explain | optimize | qa | preview")
     start.add_argument("mode", choices=("dev", "explain", "optimize", "qa", "preview"))
     start.add_argument("--project", type=Path, help="task project root (default: git root of the current directory)")
-    start.add_argument("--routing", choices=("auto", "routed", "inherited"), default="auto")
-    start.add_argument("--model", help="explicit verified main model")
     start.add_argument("--exam", action="store_true", help="dev only: start from EXAM_START.md with its approval gate")
     start.add_argument("--in-place", action="store_true", help="optimize: allow editing the live project when no git worktree is possible")
     start.add_argument("--no-skills", action="store_true")
@@ -130,8 +126,6 @@ def main() -> int:
     wp.add_argument("--path", action="append", default=[], help="extra path such as /api/items to check for HTML fallback")
     bench = sub.add_parser("benchmark", help="run actual Codex coding exercise; private evidence stays local")
     bench.add_argument("--mode", choices=("single", "multi", "smoke"), default="smoke")
-    bench.add_argument("--routing", choices=("routed", "inherited"), default="inherited")
-    bench.add_argument("--model", default="gpt-6.1-sol")
     bench.add_argument("--timeout", type=int, default=600)
     recheck = sub.add_parser("benchmark-check", help="offline acceptance check of a generated synthetic benchmark project")
     recheck.add_argument("project", type=Path)
@@ -147,17 +141,18 @@ def main() -> int:
     elif args.command == "role":
         print(role_text(args.name))
     elif args.command == "configure":
-        print(render_config(args.destination, args.mode))
+        print(render_config(args.destination))
     elif args.command == "install-skills":
         from .install import install_skills
         print(json.dumps(install_skills(args.project, args.skill), indent=2))
     elif args.command == "launch":
-        if args.model and "astra" in args.model.lower():
-            parser.error("Astra is prohibited")
-        bundle = args.bundle or ROOT / (".codex" if args.mode == "routed" else "configs/inherited")
-        cmd = ["codex", "-C", str(args.project.resolve()), *launch_overrides(bundle)]
-        if args.model:
-            cmd += ["-m", args.model]
+        bundle = args.bundle or ROOT / ".codex"
+        if args.bundle:
+            import tomllib
+            bad = [str(f) for f in [bundle / "config.toml", *(bundle / "agents").glob("*.toml")] if tomllib.loads(f.read_text()).get("model", MODEL) != MODEL]
+            if bad:
+                parser.error(f"bundle uses a model other than {MODEL}: {bad[:3]}")
+        cmd = ["codex", "-C", str(args.project.resolve()), "-m", MODEL, *launch_overrides(bundle)]
         if args.dry_run:
             print(json.dumps(cmd, indent=2))
         else:
@@ -166,11 +161,14 @@ def main() -> int:
         from .session import prepare
         if args.exam and args.mode != "dev":
             parser.error("--exam applies to dev only")
-        report = prepare(args.mode, args.project, routing=args.routing, model=args.model, dry_run=args.dry_run,
+        report = prepare(args.mode, args.project, dry_run=args.dry_run,
                          exam=args.exam, in_place=args.in_place, skip_skills=args.no_skills)
         print(json.dumps(report, indent=2, ensure_ascii=False), file=sys.stderr if not args.dry_run else sys.stdout)
         if args.dry_run:
             return 0
+        if not shutil.which("codex"):
+            print("launch error: codex CLI not found in PATH (session preparation succeeded; nothing was started)", file=sys.stderr)
+            return 127
         env = dict(os.environ)
         env["PYTHONPATH"] = os.pathsep.join(x for x in env.get("PYTHONPATH", "").split(os.pathsep) if x and Path(x).resolve() != ROOT)
         if not env["PYTHONPATH"]:
@@ -186,7 +184,7 @@ def main() -> int:
                 parser.error("state add requires --kind and --text")
             print(json.dumps(state_add(project, args.session, args.kind, args.text, workdir), ensure_ascii=False, indent=2))
         else:
-            print(json.dumps(state_show(project, args.kind, workdir=workdir), ensure_ascii=False, indent=2))
+            print(json.dumps(state_show(project, args.kind), ensure_ascii=False, indent=2))
     elif args.command == "measure":
         from .measure import measure as run_measure
         argv = args.argv[1:] if args.argv[:1] == ["--"] else args.argv
@@ -306,7 +304,7 @@ def main() -> int:
         return code
     elif args.command == "benchmark":
         from .benchmark import run
-        return run(args.mode, args.routing, args.model, args.timeout)
+        return run(args.mode, args.timeout)
     elif args.command == "benchmark-check":
         from .benchmark import evaluate
         checks, passed, log = evaluate(args.project)

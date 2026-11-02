@@ -24,7 +24,7 @@ def inspect() -> dict:
     result["features"] = command(["codex", "features", "list"])
     result["exec_help"] = command(["codex", "exec", "--help"])
     # This cache contains public model metadata, never authentication. Cache is evidence
-    # of discovery only: actual entitlement/routing still requires an execution probe.
+    # of discovery only: actual entitlement still requires an execution probe.
     cache = Path(os.environ.get("CODEX_HOME", str(Path.home() / ".codex"))) / "models_cache.json"
     result["models"] = []
     if cache.is_file():
@@ -35,6 +35,6 @@ def inspect() -> dict:
                     result["models"].append({"id": slug, "efforts": [x["effort"] for x in model.get("supported_reasoning_levels", [])]})
         except (ValueError, KeyError, OSError) as exc:
             result["catalog_error"] = str(exc)
-    result["model_evidence"] = "local cache; availability and effective routing NOT proven"
+    result["model_evidence"] = "local cache; availability and successful model calls NOT proven"
     result["next"] = "Check supplied UI /model or codex debug models --help if available; run native smoke. Never change managed restrictions."
     return result

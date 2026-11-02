@@ -78,7 +78,7 @@ ID/JOIN 키는 NFKC+trim, 대소문자 구분이다. JOIN 오른쪽 키 중복�
 
 ## 역할·자동 사용
 
-기존 explorer(Luna 6)를 Corpus Explorer로 확장하고 data(Terra 5.6)를 스트리밍/SQL 담당으로 확장했다. 기존 reviewer(Sol 6.1)가 Evidence Auditor를 겸하며 중복 역할을 만들지 않았다. 다중 문서 결합이 필요할 때만 synthesizer(Sol 6.1)를 추가한다. 총 역할 11개다. 새 세션에서 역할 설정을 발견하거나 기존 `role NAME`/명시적 launcher를 사용한다. 이 작업 세션에 새 role selector가 없어서 실제 모델 시범은 새 컨텍스트의 역할 프롬프트로 수행했고 이를 구분해 기록했다.
+기존 explorer를 Corpus Explorer로 확장하고 data를 스트리밍/SQL 담당으로 확장했다. 기존 reviewer가 Evidence Auditor를 겸하며 중복 역할을 만들지 않았다. 다중 문서 결합이 필요할 때만 synthesizer를 추가한다. 총 역할 11개다. 새 세션에서 역할 설정을 발견하거나 기존 `role NAME`/명시적 launcher를 사용한다. 이 작업 세션에 새 role selector가 없어서 실제 모델 시범은 새 컨텍스트의 역할 프롬프트로 수행했고 이를 구분해 기록했다.
 
 Skill은 20개다. large-dataset-analysis는 data-processing, evidence-extraction은 document-processing/새 multi-document-retrieval에 통합했다. cross-document-synthesis·source-grounded-verification도 조건에 맞을 때 자동 후보가 된다. [목록](skills.md)을 참고한다. 메인은 요구와 작업 의존성을 관리하고, 에이전트 간에는 경로·근거 ID·작은 결과 계약만 전달한다. 독립 원본 감사는 병렬화하되 같은 색인 DB·출력 파일을 여러 작성자에게 주지 않는다.
 

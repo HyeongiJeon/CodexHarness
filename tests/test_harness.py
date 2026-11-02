@@ -37,58 +37,44 @@ def overrides(arguments: list[str]) -> dict:
 
 
 class RoleConfigTests(unittest.TestCase):
-    def test_both_reviewer_bundles_require_citation_gate(self) -> None:
-        for path in (".codex/agents/reviewer.toml", "configs/inherited/agents/reviewer.toml"):
-            with self.subTest(path=path):
-                text = tomllib.loads((ROOT / path).read_text())["developer_instructions"]
-                self.assertIn("`evidence citations` on every answer citation before approving", text)
+    def test_reviewer_bundle_requires_citation_gate(self) -> None:
+        text = tomllib.loads((ROOT / ".codex/agents/reviewer.toml").read_text())["developer_instructions"]
+        self.assertIn("`evidence citations` on every answer citation before approving", text)
 
-    def test_checked_in_inherited_bundle_does_not_force_model_or_effort(self) -> None:
-        bundle = ROOT / "configs/inherited"
+    def test_no_legacy_inherited_bundle_or_routing_models(self) -> None:
+        self.assertFalse((ROOT / "configs").exists())
+        for path in (ROOT / ".codex").rglob("*.toml"):
+            self.assertNotRegex(path.read_text(), r"terra|luna|astra")
+
+    def test_checked_in_bundle_pins_single_model_with_role_efforts(self) -> None:
+        from harness.roles import MODEL
+        self.assertEqual(MODEL, "gpt-6.1-sol")
+        bundle = ROOT / ".codex"
         config = tomllib.loads((bundle / "config.toml").read_text())
-        documents = [config]
-        documents.extend(
-            tomllib.loads((bundle / config["agents"][name]["config_file"]).read_text())
-            for name in ROLES
-        )
-        for document in documents:
-            with self.subTest(role=document.get("name", "main")):
-                self.assertNotIn("model", document)
-                self.assertNotIn("model_reasoning_effort", document)
+        self.assertEqual(config["model"], MODEL)
+        for name, (effort, _, _) in ROLES.items():
+            role = tomllib.loads((bundle / config["agents"][name]["config_file"]).read_text())
+            self.assertEqual((role["model"], role["model_reasoning_effort"]), (MODEL, effort))
 
-    def test_inherited_bundle_preserves_parent_model_and_effort(self) -> None:
-        with tempfile.TemporaryDirectory() as directory:
-            bundle = Path(directory) / "inherited"
-            config = tomllib.loads(render_config(bundle, "inherited").read_text())
-            for key in ("model", "model_reasoning_effort"):
-                self.assertNotIn(key, config)
-            for name in ROLES:
-                role = tomllib.loads((bundle / config["agents"][name]["config_file"]).read_text())
-                self.assertEqual(role["name"], name)
-                self.assertTrue(role["developer_instructions"])
-                self.assertNotIn("model", role)
-                self.assertNotIn("model_reasoning_effort", role)
-            values = overrides(launch_overrides(bundle))
-            self.assertNotIn("model", values)
-            self.assertNotIn("model_reasoning_effort", values)
-
-    def test_routed_launch_preserves_main_and_role_model_contract(self) -> None:
+    def test_rendered_bundle_matches_checked_in_and_launch_contract(self) -> None:
         with tempfile.TemporaryDirectory(prefix="harness bundle ") as directory:
-            bundle = Path(directory) / "routed"
-            config = tomllib.loads(render_config(bundle, "routed").read_text())
+            bundle = Path(directory) / "single"
+            config = tomllib.loads(render_config(bundle).read_text())
             values = overrides(launch_overrides(bundle))
-            self.assertEqual(values["model"], config["model"])
+            self.assertEqual(values["model"], "gpt-6.1-sol")
             self.assertEqual(values["model_reasoning_effort"], config["model_reasoning_effort"])
             self.assertEqual(values["agents.max_concurrent_threads_per_session"], 4)
             self.assertIs(values["agents.enabled"], True)
             self.assertIs(values["features.browser_use"], False)
             self.assertIs(values["features.computer_use"], False)
-            for name, (model, effort, _, _) in ROLES.items():
+            for name, (effort, _, _) in ROLES.items():
                 role_path = Path(values[f"agents.{name}.config_file"])
                 self.assertTrue(role_path.is_absolute())
                 role = tomllib.loads(role_path.read_text())
                 self.assertEqual(role["name"], name)
-                self.assertEqual((role["model"], role["model_reasoning_effort"]), (model, effort))
+                self.assertEqual((role["model"], role["model_reasoning_effort"]), ("gpt-6.1-sol", effort))
+                checked = tomllib.loads((ROOT / ".codex/agents" / f"{name}.toml").read_text())
+                self.assertEqual(role, checked)
 
     def test_existing_bundle_is_not_overwritten(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

@@ -13,22 +13,16 @@ python3 -m harness validate
 python3 -m harness launch --help
 ```
 
-기본 `inherited`는 역할 파일에 모델·추론 강도를 고정하지 않는다. 검증된 부모 세션 모델을 상속하려는 경우 사용한다. 새 CLI의 부모 기본 모델이 현재 IDE 세션과 같다고 가정하지 않는다. 실행 전 `--dry-run`으로 실제 인자를 확인하고, 필요하면 `--model`로 확인된 부모 모델을 명시한다. 아래의 `gpt-6.1-sol`도 해당 환경에서 접근이 확인되어야 한다.
+모든 메인·서브에이전트는 `gpt-6.1-sol` 하나로 고정된다(역할별 라우팅·대체 모델 없음). 해당 환경에서 접근이 확인되어야 하며, 불가하면 오류를 그대로 보고하고 다른 모델로 대체하지 않는다. 실행 전 `--dry-run`으로 실제 인자를 확인한다.
 
 ```sh
-python3 -m harness launch --project /absolute/path/to/assignment --mode inherited --model gpt-6.1-sol --dry-run
-python3 -m harness launch --project /absolute/path/to/assignment --mode inherited --model gpt-6.1-sol
+python3 -m harness launch --project /absolute/path/to/assignment --dry-run
+python3 -m harness launch --project /absolute/path/to/assignment
 ```
 
-역할별 라우팅을 사용하려면 `--mode routed`를 명시한다. 이 모드는 저장소 `.codex/`의 모델·강도와 역할 파일을 명시적 일회성 `-c` 인자로 전달한다. `inherited`는 `configs/inherited/`를 사용한다. 두 모드 모두 역할 파일 경로를 절대 경로로 전달하므로 프로젝트 설정의 자동 발견에만 의존하지 않는다. 기존 프로젝트의 다른 설정이나 관리 제한은 계속 적용된다. 홈 설정, `CODEX_HOME`, 프로젝트 신뢰, 인증 파일을 변경하지 않는다.
+`launch`는 저장소 `.codex/`의 모델·강도와 역할 파일을 명시적 일회성 `-c` 인자(절대 경로)로 전달한다. 기존 프로젝트의 다른 설정이나 관리 제한은 계속 적용되며 홈 설정, `CODEX_HOME`, 프로젝트 신뢰, 인증 파일은 변경하지 않는다. 역할 파일의 모델·강도가 자식 생성 요청 값보다 나중에 적용될 수 있으므로 설정 요청값과 실제 세션의 모델·강도를 구분해 기록한다.
 
-```sh
-python3 -m harness launch --project /absolute/path/to/assignment --mode routed --dry-run
-```
-
-역할 파일의 모델·강도는 자식 생성 요청의 모델·강도보다 나중에 적용되어 우선할 수 있다. `launch --model`은 부모 모델 선택이며 routed 역할의 모델을 일괄 교체하지 않는다. 현재 라우팅 설정의 요청값과 실제 세션의 모델·강도를 구분해 기록한다. `data`·`qa`의 요청 ID는 `gpt-5.6-terra`이고 접근 검증 전에는 사용 성공으로 쓰지 않는다. 근거는 [버전별 조사](codex-research.md)에 있다.
-
-`configure NEW_DIRECTORY --mode inherited|routed`는 비어 있는 새 디렉터리에 번들을 만들며 기존 파일 덮어쓰기를 거부한다. 생성한 설정은 자동 적용되지 않는다. 역할 파일을 해당 환경에서 확인된 모델로 조정한 뒤 `launch --bundle NEW_DIRECTORY`로 명시적으로 선택한다. 이 안내의 앞선 명령은 체크인된 두 번들을 사용한다.
+`configure NEW_DIRECTORY`는 비어 있는 새 디렉터리에 단일 모델 번들을 만들며 기존 파일 덮어쓰기를 거부한다. 생성한 설정은 자동 적용되지 않고 `launch --bundle NEW_DIRECTORY`로 명시 선택한다(`gpt-6.1-sol` 이외 모델이 있으면 거부).
 
 다른 과제 프로젝트는 harness 저장소의 스킬을 자동 발견하지 않는다. 필요한 스킬만 원래 스킬을 덮어쓰지 않고 복사하고 Codex 세션을 새로 시작한다. 기존 `AGENTS.md`와 `.codex/`는 이 명령이 수정하지 않는다.
 
@@ -39,7 +33,7 @@ python3 -m harness role lead
 
 두 번째 명령의 리드 지침은 실제 과제의 지침에 맞게 메인에게 전달한다. harness의 AGENTS.md나 `make check`를 원래 프로젝트의 지침·검사로 대체하지 않는다. 원래 프로젝트와 충돌하는 스킬은 보존되며 `preserved_existing`에 표시된다.
 
-CLI나 역할 선택 기능이 없으면 제공 IDE의 네이티브 에이전트 도구를 사용한다. `python3 -m harness role requirements`처럼 프롬프트를 출력해 검증된 부모 모델을 상속하는 새 에이전트에 전달한다. 에이전트 기능도 금지되거나 없으면 순차 작업으로 전환하고 한계를 남긴다. 외부 CLI 설치, 업데이트, 권한 완화로 복구하지 않는다.
+CLI나 역할 선택 기능이 없으면 제공 IDE의 네이티브 에이전트 도구를 사용한다. `python3 -m harness role requirements`처럼 프롬프트를 출력해 `gpt-6.1-sol` 새 에이전트에 전달한다. 에이전트 기능도 금지되거나 없으면 순차 작업으로 전환하고 한계를 남긴다. 외부 CLI 설치, 업데이트, 권한 완화로 복구하지 않는다.
 
 ## 시간 배분 예시
 
@@ -71,9 +65,9 @@ python3 -m harness demo --host 127.0.0.1 --port 8765
 다음 benchmark는 준비 단계에서 실제 Codex 실행·시간·토큰 증거를 수집한다. 인증된 제공 CLI 호출이며 무료 정적 검사가 아니다. 기본 smoke는 실제 새 자식 두 개와 반환 파일을 검사한다. 설치 CLI V1의 문맥 인자를 예시로 안내하지만 실제 노출된 도구가 hosted 스키마를 쓰면 그 스키마를 따른다. 실제 생성 요청과 자식 세션을 확인하고 실패를 사실대로 기록한다. 시험 중에는 과제와 규칙이 허용하는 경우에만 사용한다.
 
 ```sh
-python3 -m harness benchmark --mode smoke --routing inherited --model gpt-6.1-sol --timeout 120
-python3 -m harness benchmark --mode single --routing inherited --model gpt-6.1-sol --timeout 600
-python3 -m harness benchmark --mode multi --routing inherited --model gpt-6.1-sol --timeout 600
+python3 -m harness benchmark --mode smoke --timeout 120
+python3 -m harness benchmark --mode single --timeout 600
+python3 -m harness benchmark --mode multi --timeout 600
 ```
 
 실행 결과는 로컬 `.harness/runs/`에 남으며 Git에서 제외된다. 실제 모델·강도, 생성 이벤트, 병렬 시간 겹침, 성공 기준을 `summary.json`과 대조한다. 토큰 수의 집계 범위를 확인하며 부모 사용량만으로 전체 비용을 주장하지 않는다. 원시 세션 로그·인증·업무 데이터는 복사하거나 공개 커밋하지 않는다. 공개 기록이 필요하면 합성 실행에서 비밀 없는 집계만 선별한다.

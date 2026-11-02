@@ -14,7 +14,7 @@ from harness.measure import measure
 from harness.roles import ROOT, ROLES
 
 ALL = {"lead": 0}
-CATALOG_FULL = {"source": "test", "slugs": sorted({m for m, *_ in ROLES.values()})}
+SOL = lambda: ["gpt-6.1-sol", "gpt-6-luna"]
 
 
 def make_project(directory: str, git: bool = True) -> Path:
@@ -38,7 +38,7 @@ class SessionTests(unittest.TestCase):
         self.addCleanup(setattr, session, "STATE_ROOT", self._old)
 
     def prep(self, mode, project, **kw):
-        kw.setdefault("catalog", CATALOG_FULL)
+        kw.setdefault("catalog_reader", SOL)
         kw.setdefault("dry_run", True)
         return session.prepare(mode, project, **kw)
 
@@ -69,21 +69,53 @@ class SessionTests(unittest.TestCase):
             for mode in ("dev", "qa", "preview"):
                 self.assertNotIn("-s", self.prep(mode, project)["command"])
 
-    def test_routing_falls_back_to_inherited_without_models(self):
-        self.assertEqual(session.resolve_routing("auto", {"source": "t", "slugs": ["gpt-x"]})["mode"], "inherited")
-        self.assertEqual(session.resolve_routing("routed", {"source": "t", "slugs": []})["mode"], "inherited")
-        self.assertEqual(session.resolve_routing("auto", CATALOG_FULL)["mode"], "routed")
-        self.assertIn("not proof", session.resolve_routing("auto", CATALOG_FULL)["limitation"])
-        with self.assertRaises(ValueError):
-            session.resolve_routing("auto", CATALOG_FULL, "gpt-6-astra")
-
-    def test_routed_and_inherited_bundles_selected(self):
+    def test_single_model_policy_and_no_fallback(self):
+        self.assertEqual(session.check_model_available(SOL)["status"], "listed")
+        with self.assertRaises(session.SessionError) as cm:
+            session.check_model_available(lambda: ["gpt-6-luna", "gpt-5.6-terra"])
+        self.assertIn("refusing to fall back", str(cm.exception))
+        self.assertEqual(session.check_model_available(lambda: None)["status"], "unverified")
         with tempfile.TemporaryDirectory() as d:
             project = make_project(d)
-            routed = self.prep("dev", project)["command"]
-            self.assertIn('model="gpt-6.1-sol"', routed)
-            inherited = self.prep("dev", project, catalog={"source": "t", "slugs": []})["command"]
-            self.assertFalse(any(x.startswith("model=") for x in inherited))
+            with self.assertRaises(session.SessionError):
+                self.prep("dev", project, catalog_reader=lambda: ["gpt-6-luna"])
+
+    def test_every_mode_command_pins_sol_for_main_and_all_subagents(self):
+        with tempfile.TemporaryDirectory() as d:
+            project = make_project(d)
+            for mode in ("dev", "explain", "qa", "preview"):
+                cmd = self.prep(mode, project)["command"]
+                self.assertEqual(cmd[cmd.index("-m") + 1], "gpt-6.1-sol")
+                values = [cmd[i + 1] for i, x in enumerate(cmd) if x == "-c"]
+                self.assertIn('model="gpt-6.1-sol"', values)
+                for name in ROLES:
+                    path = next(v.split("=", 1)[1].strip('"') for v in values if v.startswith(f"agents.{name}.config_file="))
+                    import tomllib
+                    self.assertEqual(tomllib.loads(Path(path).read_text())["model"], "gpt-6.1-sol")
+        for flag in ("--routing", "--model"):
+            out = subprocess.run([sys.executable, "-m", "harness", "start", "dev", flag, "x"], cwd=ROOT, capture_output=True, text=True)
+            self.assertNotEqual(out.returncode, 0)
+
+    def test_preparation_works_without_codex_installed(self):
+        from unittest import mock
+        with tempfile.TemporaryDirectory() as d:
+            project = make_project(d)
+            with mock.patch("harness.session.shutil.which", return_value=None):
+                r = self.prep("dev", project, dry_run=False, catalog_reader=None)
+            self.assertEqual(r["skills"]["recognition"]["checked"], False)
+            self.assertEqual(r["model"]["status"], "unverified")
+
+    def test_missing_codex_is_a_launch_error_not_a_config_error(self):
+        with tempfile.TemporaryDirectory() as d:
+            project = make_project(d)
+            import shutil
+            bin_dir = Path(d) / "bin"
+            bin_dir.mkdir()
+            (bin_dir / "git").symlink_to(shutil.which("git"))
+            env = {**os.environ, "PYTHONPATH": str(ROOT), "PATH": str(bin_dir)}
+            out = subprocess.run([sys.executable, "-m", "harness", "start", "qa", "--project", str(project)], env=env, capture_output=True, text=True)
+            self.assertEqual(out.returncode, 127)
+            self.assertIn("launch error", out.stderr)
 
     def test_skill_install_is_idempotent_and_preserves_existing(self):
         with tempfile.TemporaryDirectory() as d:
@@ -139,21 +171,50 @@ class SessionTests(unittest.TestCase):
                 session.STATE_ROOT = session_state
                 subprocess.run(["git", "worktree", "prune"], cwd=project, capture_output=True)
 
-    def test_state_commands_work_inside_optimize_worktree(self):
+    def test_optimize_dry_run_has_no_side_effects(self):
+        with tempfile.TemporaryDirectory() as d:
+            project = make_project(d)
+            before = subprocess.run(["git", "worktree", "list"], cwd=project, capture_output=True, text=True).stdout
+            r = self.prep("optimize", project)
+            self.assertTrue(r["isolation"]["would_create"])
+            self.assertFalse(session.STATE_ROOT.exists())
+            self.assertEqual(before, subprocess.run(["git", "worktree", "list"], cwd=project, capture_output=True, text=True).stdout)
+            self.assertFalse((project / ".agents").exists())
+            self.assertEqual(subprocess.run(["git", "branch", "--list", "harness/*"], cwd=project, capture_output=True, text=True).stdout, "")
+
+    def git(self, cwd, *a):
+        return subprocess.run(["git", "-c", "user.name=t", "-c", "user.email=t@t", *a], cwd=cwd, capture_output=True, text=True).stdout.strip()
+
+    def test_optimize_results_distinguish_stale_from_not_integrated(self):
         with tempfile.TemporaryDirectory() as d:
             project = make_project(d)
             r = self.prep("optimize", project, dry_run=False)
             wt = Path(r["isolation"]["path"])
             self.assertEqual(session.find_project(None, wt), project.resolve())
-            session.state_add(project, "optimize", "perf", "x", workdir=wt)
-            (wt / "new.py").write_text("y=1")
-            self.assertTrue(session.state_show(project, workdir=wt)["records"][-1].get("stale"))
-            (project / "later.py").write_text("")
-            subprocess.run(["git", "add", "-A"], cwd=project)
-            subprocess.run(["git", "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "2"], cwd=project)
-            again = self.prep("optimize", project, dry_run=False)
-            self.assertIn("ahead", again["isolation"]["warning"])
-            subprocess.run(["git", "worktree", "prune"], cwd=project)
+            (wt / "opt.py").write_text("y=1")
+            rec = session.state_add(project, "optimize", "perf", "2x faster", workdir=wt)
+            self.assertEqual(rec["workspace"]["kind"], "worktree")
+            self.assertEqual(rec["workspace"]["branch"], "harness/optimize")
+            self.assertEqual(rec["workspace"]["commit"], self.git(wt, "rev-parse", "HEAD"))
+            # DEV reads it: worktree unchanged -> not stale, but not integrated
+            got = session.state_show(project)["records"][-1]
+            self.assertNotIn("stale", got)
+            self.assertTrue(got["not_integrated"])
+            # project changes do not make the worktree result stale
+            (project / "dev.py").write_text("x=1")
+            self.assertNotIn("stale", session.state_show(project)["records"][-1])
+            # worktree changes do
+            (wt / "opt.py").write_text("y=2")
+            self.assertTrue(session.state_show(project)["records"][-1]["stale"])
+            # commit in worktree, then merge into project: integrated (and still stale vs. the old fingerprint)
+            self.git(wt, "add", "-A"); self.git(wt, "commit", "-qm", "opt")
+            session.state_add(project, "optimize", "perf", "committed", workdir=wt)
+            self.git(project, "add", "-A"); self.git(project, "commit", "-qm", "dev")
+            self.git(project, "merge", "-q", "--no-edit", "harness/optimize")
+            last = session.state_show(project)["records"][-1]
+            self.assertNotIn("not_integrated", last)
+            self.assertNotIn("stale", last)
+            self.git(project, "worktree", "prune")
 
     def test_exam_flag_uses_exam_start_gate(self):
         with tempfile.TemporaryDirectory() as d:
@@ -169,6 +230,7 @@ class SessionTests(unittest.TestCase):
                 session.state_add(project, "qa", "qa-result", "login PASS")
                 session.state_add(project, "dev", "decision", "use sqlite")
                 self.assertFalse(any(r.get("stale") for r in session.state_show(project)["records"]))
+                self.assertNotIn("not_integrated", session.state_show(project)["records"][0])
                 (project / "new.py").write_text("x=1")
                 recs = {r["kind"]: r for r in session.state_show(project)["records"]}
                 self.assertTrue(recs["qa-result"]["stale"])
@@ -217,6 +279,15 @@ class MeasureTests(unittest.TestCase):
         self.assertEqual(measure([sys.executable, "-c", "print(2)"], repeat=1, warmup=0, baseline=base)["status"], "invalid_baseline")
         self.assertEqual(measure(["/nonexistent/exe"], repeat=1, warmup=0)["status"], "failed")
 
+    def test_partial_start_failure_does_not_raise_keyerror(self):
+        from unittest import mock
+        ok = {"seconds": 0.1, "exit": 0, "max_rss_kb": 1, "stdout_sha256": "a", "stdout_bytes": 1}
+        bad = {"error": "boom", "exit": -1, "seconds": 0.0, "max_rss_kb": 0, "stdout_sha256": "", "stdout_bytes": 0}
+        for seq, status in (([ok, bad, ok], "failed"), ([bad, ok, ok], "failed"), ([ok, {"timeout": True, "seconds": 1}, ok], "timeout"),
+                            ([ok, {**ok, "stdout_sha256": "b"}, ok], "failed"), ([ok, {**ok, "exit": 2}, ok], "failed")):
+            with mock.patch("harness.measure._one", side_effect=list(seq)):
+                self.assertEqual(measure(["x"], repeat=3, warmup=0)["status"], status)
+
     def test_timeout(self):
         self.assertEqual(measure([sys.executable, "-c", "import time;time.sleep(5)"], repeat=1, warmup=0, timeout=0.3)["status"], "timeout")
 
@@ -243,6 +314,18 @@ class ProbeExtensionTests(unittest.TestCase):
         if r["bind_addresses"] is not None:
             self.assertIn("127.0.0.1", r["bind_addresses"])
             self.assertTrue(any("bound only" in f["message"] for f in r["findings"]))
+
+
+class BaselineServerTests(unittest.TestCase):
+    def test_port_conflict_gives_actionable_error(self):
+        import socket
+        from harness.web_probe import serve_baseline
+        with socket.socket() as s:
+            s.bind(("127.0.0.1", 0))
+            s.listen()
+            with self.assertRaises(ValueError) as cm:
+                serve_baseline("127.0.0.1", s.getsockname()[1])
+            self.assertIn("different --port", str(cm.exception))
 
 
 class DataExtensionTests(unittest.TestCase):

@@ -70,7 +70,8 @@ def bind_addresses(port: int) -> list[str] | None:
     found, readable = [], False
     for name, width in (("tcp", 8), ("tcp6", 32)):
         try:
-            lines = open(f"/proc/net/{name}").read().splitlines()[1:]
+            with open(f"/proc/net/{name}") as handle:
+                lines = handle.read().splitlines()[1:]
         except OSError:
             continue
         readable = True
@@ -231,7 +232,14 @@ def serve_baseline(host: str, port: int, directory=None) -> None:
         def log_message(self, fmt, *a):
             print("baseline:", fmt % a, flush=True)
 
-    server = http.server.ThreadingHTTPServer((host, port), Handler)
+    try:
+        server = http.server.ThreadingHTTPServer((host, port), Handler)
+    except OSError as exc:
+        owners = bind_addresses(port)
+        raise ValueError(f"cannot bind {host}:{port}: {exc.strerror}. "
+                         + (f"Something already listens on port {port} (bound: {owners}) - likely your app. "
+                            "Either use a different --port, or stop the app first, run the baseline, stop it, and restart the app "
+                            "(see docs/preview/cofa-runbook.md, baseline procedure)." if owners else "Pick another --port.")) from exc
     print(f"baseline server on {host}:{port} (open http://127.0.0.1:{port}/ or your platform's preview for port {port}); Ctrl-C to stop", flush=True)
     try:
         server.serve_forever()

@@ -9,6 +9,7 @@ DEV의 하위 에이전트가 아닌 별도 Main 세션이다. 하네스가 만�
 4. 시간/공간 복잡도·자료구조·SQL(인덱스, N+1, JOIN)·I/O·캐시를 검토하고 방안을 비교해 사용자 승인 후 구현.
 5. 동일 입력·조건으로 `measure --label after --baseline before.json`. `status=output_changed`는 **실패**(동작이 바뀜). `distinguishable=false`는 노이즈 안의 차이이므로 개선으로 주장하지 않는다. 1회 측정을 통계적 개선으로 과장하지 않는다.
 6. 기존 테스트 전부와 경계 입력을 재실행한다. 기능이 깨졌으면 최적화는 실패로 판정하고 되돌린다.
-7. 주의: worktree에는 마지막 커밋의 추적 파일만 있다(미추적/무시 파일 `.env`·데이터·node_modules 없음 — 필요하면 복사/빌드). `state` 명령은 worktree 안에서 원본 프로젝트를 자동 인식하고 worktree 내용으로 fingerprint한다. 결과 기록: `state add --session optimize --kind perf --text "<대상·입력크기·전/후 중앙값·RSS·정확성·한계>"`. 통합 권고(커밋/브랜치, 병합 시 위험)를 DEV에 전달한다. 병합은 사용자 결정이다.
+7. 상태 판정: `state show`는 각 기록에 작업공간(worktree/브랜치/커밋)을 함께 기록하며 `stale`(그 작업공간의 내용이 기록 이후 변했음)과 `not_integrated`(미커밋이거나 프로젝트 HEAD에 병합되지 않은 worktree 결과)를 따로 표시한다. DEV는 `not_integrated` 결과를 프로젝트의 현재 성능으로 읽지 않는다.
+8. 주의: worktree에는 마지막 커밋의 추적 파일만 있다(미추적/무시 파일 `.env`·데이터·node_modules 없음 — 필요하면 복사/빌드). `state` 명령은 worktree 안에서 원본 프로젝트를 자동 인식하고 worktree 내용으로 fingerprint한다. 결과 기록: `state add --session optimize --kind perf --text "<대상·입력크기·전/후 중앙값·RSS·정확성·한계>"`. 통합 권고(커밋/브랜치, 병합 시 위험)를 DEV에 전달한다. 병합은 사용자 결정이다.
 
 데이터 분석 입력은 `data profile`/`data aggregate`를 재사용한다.

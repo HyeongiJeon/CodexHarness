@@ -26,10 +26,10 @@ Git push 금지, 외부 서비스로 과제 데이터 전송 금지, 브라우�
    `PYTHONPATH=<CodexHarness 절대경로> python3 -m harness install-skills --project <과제 루트> --skill web-application-development --skill web-runtime-debugging --skill web-flow-verification --skill web-ui-patterns --skill frontend-design --skill rapid-mvp-development --skill parallel-implementation --skill completion-verification --skill decision-and-evidence-recording`
    API는 `api-backend-development`, 대시보드는 `visualization-and-dashboard`, 데이터는 `data-processing`, 문서·다중 문서는 해당 Skill을 추가한다. **새로 설치한 Skill은 새 세션에서 발견된다.** 현재 세션에 소급 적용되지 않으면 해당 `SKILL.md`를 직접 읽어 따른다.
 4. 위임 수단을 확인한다. 이 세션에 네이티브 서브에이전트 도구가 있으면 사용한다. 사용자가 역할 설정으로 시작하려면 알려 준다:
-   `PYTHONPATH=<CodexHarness 절대경로> python3 -m harness launch --project <과제 루트> --mode routed --dry-run` 후 필요 시 `--mode inherited --model <확인된 모델>`. 이미 실행 중인 세션에는 소급 적용되지 않으며, 설정 파일을 읽은 것을 에이전트 가동의 증거로 쓰지 않는다. 역할 지정이 불가하면 `PYTHONPATH=<CodexHarness 절대경로> python3 -m harness role <이름>` 출력을 새 에이전트 프롬프트로 전달하고 inherited fallback을 기록한다. 서브에이전트가 금지·불가이면 순차로 진행하고 그 한계를 보고한다.
+   `PYTHONPATH=<CodexHarness 절대경로> python3 -m harness launch --project <과제 루트> --dry-run` (모든 메인·서브에이전트가 `gpt-6.1-sol` 하나로 고정되며 모델 선택·라우팅 옵션은 없다). 이미 실행 중인 세션에는 소급 적용되지 않으며, 설정 파일을 읽은 것을 에이전트 가동의 증거로 쓰지 않는다. 역할 지정이 불가하면 `PYTHONPATH=<CodexHarness 절대경로> python3 -m harness role <이름>` 출력을 새 에이전트(`gpt-6.1-sol`) 프롬프트로 전달하고 그 대체 경로를 기록한다. `gpt-6.1-sol`을 쓸 수 없으면 다른 모델로 대체하지 말고 오류를 그대로 보고한다. 서브에이전트가 금지·불가이면 순차로 진행하고 그 한계를 보고한다.
 
 ### 2. 전문 에이전트 운영 (구현 승인 후)
-모든 에이전트를 무조건 띄우지 않는다. 승인된 범위에 필요한 역할만, 독립 작업은 병렬로 위임한다. 설정 단계에서는 requirements·explorer 같은 읽기 전용 조사와 역할 사용 가능 여부 확인만 한다. 모델 정책은 기존 설정(routed: Sol/Terra/Luna, inherited: 부모 모델 상속)을 유지하되 **실제로 관찰한 모델·역할만** 기록한다.
+모든 에이전트를 무조건 띄우지 않는다. 승인된 범위에 필요한 역할만, 독립 작업은 병렬로 위임한다. 설정 단계에서는 requirements·explorer 같은 읽기 전용 조사와 역할 사용 가능 여부 확인만 한다. 모델 정책은 **`gpt-6.1-sol` 단일 모델**이다(역할별 모델 라우팅·대체 모델 없음, 역할별 추론 강도는 유지). **실제로 관찰한 모델·역할만** 기록하고 설정 등록만으로 호출 성공을 주장하지 않는다.
 
 | 역할 | 사용 시점 | 쓰기 경로 |
 | --- | --- | --- |

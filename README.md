@@ -7,12 +7,12 @@ git clone https://github.com/HyeongiJeon/CodexHarness.git
 cd CodexHarness
 python3 -m harness doctor
 make check
-python3 -m harness launch --mode inherited --model gpt-6.1-sol
+python3 -m harness launch --dry-run
 ```
 
 **실전 시작:** Codex에 `CodexHarness/EXAM_START.md 읽고 시작해줘.` 한 문장을 입력합니다([EXAM_START.md](EXAM_START.md)). 사전체험은 [START_HERE.md](START_HERE.md)를 사용합니다. 웹 미리보기 진단은 `python3 -m harness web-probe http://127.0.0.1:PORT/ --path /api/...`(localhost HTTP 전용, 브라우저 미사용)입니다.
 
-`gpt-6.1-sol`은 이 준비 환경에서 실행 확인한 ID입니다. 시험에서는 제공 `/model`·CLI 카탈로그와 실제 접근을 먼저 확인하고 허용된 모델을 지정합니다. Codex나 Python 설치·업데이트 스크립트는 포함하지 않습니다. `make`가 없으면 Makefile에 적힌 Python 명령을 직접 실행합니다.
+`gpt-6.1-sol`은 이 준비 환경에서 실행 확인한 ID입니다. 시험에서도 모델은 `gpt-6.1-sol` 하나뿐이며, 접근이 확인되지 않으면 다른 모델로 대체하지 말고 오류로 보고합니다. Codex나 Python 설치·업데이트 스크립트는 포함하지 않습니다. `make`가 없으면 Makefile에 적힌 Python 명령을 직접 실행합니다.
 
 ## 구성과 실행 방식
 
@@ -29,8 +29,7 @@ flowchart LR
 | 경로 | 실제 책임 |
 | --- | --- |
 | `AGENTS.md` | 리드 운영 원칙·과제 우선·시험 제한 |
-| `.codex/config.toml`, `.codex/agents/` | 역할별 모델·추론 강도, 최대 4개 설정값·깊이 1 |
-| `configs/inherited/` | 역할 모델·강도를 고정하지 않는 호환 번들 |
+| `.codex/config.toml`, `.codex/agents/` | 모든 역할 `gpt-6.1-sol` 고정 + 역할별 추론 강도, 최대 4개 설정값·깊이 1 |
 | `.agents/skills/` | 조건별 24개 Skill·필요할 때만 읽는 references |
 | `harness/` | doctor·명시적 역할 실행기·계획 검사·안전한 Skill 복사·CSV·HTTP 예제·실제 benchmark |
 | `examples/`, `tests/`, `benchmarks/` | 합성 입력·의도적 결함·회귀 검사·재현 가능한 측정 결과 |
@@ -38,29 +37,29 @@ flowchart LR
 
 프로젝트 설정 자동 로딩은 **신뢰된 프로젝트 여부와 설치 버전**에 달려 있습니다. `launch`는 선택한 번들의 역할 경로를 절대 경로 `-c` 인자로 전달합니다. 홈 설정·인증·신뢰·권한·관리 제한을 바꾸지 않습니다. 제공 환경에서 역할 선택이 금지된 경우 실행기를 쓰지 않고 허용된 순차 작업으로 전환합니다.
 
-| 역할 | routed 모델 | 추론 | 책임 |
+| 역할 | 모델 | 추론 | 책임 |
 | --- | --- | --- | --- |
 | Main / lead | `gpt-6.1-sol` | high | 기준·시간·위임·파일 소유권·최종 실행 |
 | requirements | `gpt-6.1-sol` | high | 필수·선택·질문·수용 기준 |
 | architect | `gpt-6.1-sol` | high | 최소 구조·인터페이스·의존성 |
-| explorer | `gpt-6-luna` | medium | 기본 읽기 전용 저장소·문서 Corpus 탐색 |
+| explorer | `gpt-6.1-sol` | medium | 기본 읽기 전용 저장소·문서 Corpus 탐색 |
 | core | `gpt-6.1-sol` | high | 핵심 로직·API·복잡한 수정 |
 | frontend | `gpt-6.1-sol` | medium | 화면·상태·접근성·핵심 흐름 |
-| data | `gpt-5.6-terra` | high | 정제·대용량 JOIN·정확한 계산 검증 |
-| qa | `gpt-5.6-terra` | high | 실제 재현·테스트·회귀 |
+| data | `gpt-6.1-sol` | high | 정제·대용량 JOIN·정확한 계산 검증 |
+| qa | `gpt-6.1-sol` | high | 실제 재현·테스트·회귀 |
 | reviewer | `gpt-6.1-sol` | high | 새 문맥의 독립 결함·원문 근거 감사 |
-| docs | `gpt-6-luna` | medium | 사실 기반 결정·사용법·증거 |
+| docs | `gpt-6.1-sol` | medium | 사실 기반 결정·사용법·증거 |
 | synthesizer | `gpt-6.1-sol` | high | 근거팩 종합·상충·조건부 결론 |
 
-이 ID들은 설치 환경의 모델 메타데이터에서 확인했습니다. Sol 6.1·Luna 6·Terra 5.6의 실제 역할 라우팅도 실행 증거로 확인했습니다. 모든 역할을 항상 실행하지 않습니다. 작은 수정은 리드가 처리하고, 독립 작업이 충분할 때만 병렬화합니다. `gpt-5.6-terra`와 `gpt-6.1-terra`는 다른 모델입니다. `gpt-6-sol`은 로컬 카탈로그에서 확인했으나 이 benchmark의 실행 모델은 아닙니다. Astra는 사용하지 않습니다.
+**모델 정책: `gpt-6.1-sol` 단일 모델.** 모든 메인 세션과 서브에이전트가 같은 모델을 쓰며 역할별 모델 라우팅·대체 모델·`--model`/`--routing` 옵션은 없다(Sol을 쓸 수 없으면 오류로 중단). 역할별 전문 지침과 추론 강도만 다르다. 설정 등록이나 모델 카탈로그 목록은 호출 성공의 증거가 아니며 실제 실행으로만 확인한다. 과거 benchmark·리뷰 문서(`docs/benchmark-results.md`, `docs/reviews/`, `docs/prose-trial-results.md`, `benchmarks/`)의 Terra/Luna 기록은 당시 실행의 **역사적 증거**이며 현재 정책으로 바꾸지 않았다. 모든 역할을 항상 실행하지 않습니다. 작은 수정은 리드가 처리하고, 독립 작업이 충분할 때만 병렬화합니다. Astra는 사용하지 않습니다.
 
 설치 CLI는 **0.163.0**입니다. [공식 문서·버전별 소스 조사](docs/codex-research.md)는 최신 소스 스냅샷과 설치 버전을 분리합니다. V1의 `fork_context=false`, hosted 도구의 `fork_turns="none"`, 동시 한도 계산은 같은 API라고 가정하지 않습니다. 이 환경의 실제 실행에는 hosted 형태가 노출됐습니다. 새 문맥도 파일 시스템은 공유합니다. [계획 계약](examples/task-plan.json)과 `plan-check`는 소유권 충돌·의존성을 확인하지만 파일 잠금은 아닙니다.
 
 ## 전문 세션 원클릭 실행 (V2)
 ```bash
-./CodexHarness/start.sh dev|explain|optimize|qa|preview [--project DIR] [--dry-run] [--routing auto|routed|inherited]
+./CodexHarness/start.sh dev|explain|optimize|qa|preview [--project DIR] [--dry-run] [--exam]
 ```
-Codex가 **시작되기 전에** 프로젝트 탐지(`--project` 또는 현재 git 루트)·`validate`·스택에 맞는 Skill 설치(기존 파일 보존, 반복 실행 안전)·모델 카탈로그(`codex debug models`) 확인·routed/inherited 선택·Skill 인식 확인(`codex debug prompt-input`, 모델 호출 없음)을 하고 보고한 뒤 세션을 시작한다. 이미 실행 중인 Codex(Cofa 등)에는 소급 적용되지 않는다: `--dry-run`으로 준비하고 새 세션에서 시작한다.
+Codex가 **시작되기 전에** 프로젝트 탐지(`--project` 또는 현재 git 루트)·`validate`·스택에 맞는 Skill 설치(기존 파일 보존, 반복 실행 안전)·`gpt-6.1-sol` 카탈로그 확인(없으면 오류, 대체 모델 없음)·Skill 인식 확인(`codex debug prompt-input`, 모델 호출 없음)을 하고 보고한 뒤 세션을 시작한다. 이미 실행 중인 Codex(Cofa 등)에는 소급 적용되지 않는다: `--dry-run`으로 준비하고 새 세션에서 시작한다.
 
 | 모드 | 내용 | 강제되는 것 / 지침뿐인 것 |
 |---|---|---|
@@ -70,7 +69,7 @@ Codex가 **시작되기 전에** 프로젝트 탐지(`--project` 또는 현재 g
 | `qa` | QA Lead(기존 qa/data/reviewer 재사용), PASS/FAIL/UNVERIFIED 보고(`templates/qa-report.md`) | 제품 코드 비수정은 지침뿐 |
 | `preview` | 웹/미리보기 계층 진단, `preview-baseline`, [Cofa 런북](docs/preview/cofa-runbook.md) | 지침 |
 
-세션 공유 기록은 프로젝트 밖(`.harness/sessions/`)에 `harness state add|show`로 남기며, 코드가 바뀐 뒤의 검증/성능/결함 기록은 `stale`로 표시된다. 추가 CLI: `measure`(반복 시간·최대 RSS·출력 해시 비교), `data sqlite`(읽기 전용 스키마·정합성·SELECT), `data profile`의 수치 통계·이상치 후보·중복, `web-probe --host-header/--origin`과 바인드 주소 보고.
+세션 공유 기록은 프로젝트 밖(`.harness/sessions/`)에 `harness state add|show`로 남기며, 기록마다 작업공간(worktree·브랜치·커밋)을 저장하며, 그 작업공간이 기록 이후 바뀌면 `stale`, 별도 worktree 결과가 프로젝트에 병합되지 않았으면 `not_integrated`로 따로 표시한다. 추가 CLI: `measure`(반복 시간·최대 RSS·출력 해시 비교), `data sqlite`(읽기 전용 스키마·정합성·SELECT), `data profile`의 수치 통계·이상치 후보·중복, `web-probe --host-header/--origin`과 바인드 주소 보고.
 
 ## 기존 과제 프로젝트에서 사용
 
@@ -79,13 +78,13 @@ Codex가 **시작되기 전에** 프로젝트 탐지(`--project` 또는 현재 g
 ```sh
 python3 -m harness install-skills --project /path/to/assignment --skill parallel-implementation --skill completion-verification
 python3 -m harness role lead
-python3 -m harness launch --project /path/to/assignment --mode inherited --model gpt-6.1-sol --dry-run
-python3 -m harness launch --project /path/to/assignment --mode inherited --model gpt-6.1-sol
+python3 -m harness launch --project /path/to/assignment --dry-run
+python3 -m harness launch --project /path/to/assignment
 ```
 
 `install-skills`는 동명 스킬을 보존하고 결과를 출력합니다. 새 세션에서 Skill 발견을 확인하고 리드 프롬프트를 원래 과제 지침에 맞게 전달합니다. 다른 프로젝트는 하네스 경로의 Skill을 자동 발견하지 않습니다. 역할 파일에서 모델을 지정할 수 없는 환경은 `role NAME`으로 프롬프트만 출력해 제공된 새 에이전트에 전달합니다. 서브에이전트도 없으면 순차 수행하며 독립 검토 제한을 기록합니다.
 
-모델별 라우팅은 `launch --mode routed`로 선택합니다. 역할 파일 모델·강도가 spawn 인자보다 우선할 수 있습니다. `launch --model`은 부모만 지정합니다. 호환 번들은 역할에서 값을 강제하지 않으므로 부모·spawn·설치 환경의 기본값이 적용됩니다. 실제 모델은 로그로 확인해야 합니다. 별도 번들은 `configure NEW_DIRECTORY --mode inherited`로 만들고 `launch --bundle NEW_DIRECTORY`로 선택합니다. 기존 번들은 덮어쓰지 않습니다.
+`launch`는 체크인된 `.codex/` 번들(모든 역할 `gpt-6.1-sol`)을 절대 경로 `-c` 인자로 전달하고 `-m gpt-6.1-sol`을 명시한다. 별도 번들은 `configure NEW_DIRECTORY`로 만들고 `launch --bundle NEW_DIRECTORY`로 선택하며, `gpt-6.1-sol` 이외 모델이 들어 있으면 거부한다. 기존 번들은 덮어쓰지 않는다. 실제 모델은 로그로 확인해야 한다.
 
 ## Skill과 도구
 
@@ -108,9 +107,9 @@ python3 -m unittest discover -s examples/bugfix/starter -v
 실제 Codex 실행 benchmark는 정적 검사와 달리 AI 사용량을 소비합니다.
 
 ```sh
-python3 -m harness benchmark --mode smoke --routing inherited --timeout 180
-python3 -m harness benchmark --mode single --routing routed --timeout 480
-python3 -m harness benchmark --mode multi --routing routed --timeout 480
+python3 -m harness benchmark --mode smoke --timeout 180
+python3 -m harness benchmark --mode single --timeout 480
+python3 -m harness benchmark --mode multi --timeout 480
 ```
 
 원시 로그·자식 세션·요청/실제 모델·파일·실행 시간을 `.harness/runs/`에 보관합니다. CLI JSONL에서 생성 이벤트가 누락되는 환경은 자식 세션의 실제 부모 관계·문맥 요청·타임스탬프로 보완합니다. 증거가 없으면 검증 성공으로 처리하지 않습니다. 세션 저장 방식이 다르면 모델·문맥·병렬 검증은 미확인일 수 있습니다. 원시 로그나 인증을 공개 커밋하지 않습니다.
