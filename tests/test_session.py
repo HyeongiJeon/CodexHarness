@@ -69,16 +69,35 @@ class SessionTests(unittest.TestCase):
             for mode in ("dev", "qa", "preview"):
                 self.assertNotIn("-s", self.prep(mode, project)["command"])
 
-    def test_single_model_policy_and_no_fallback(self):
+    def test_catalog_is_advisory_and_never_blocks_or_switches_model(self):
         self.assertEqual(session.check_model_available(SOL)["status"], "listed")
-        with self.assertRaises(session.SessionError) as cm:
-            session.check_model_available(lambda: ["gpt-6-luna", "gpt-5.6-terra"])
-        self.assertIn("refusing to fall back", str(cm.exception))
         self.assertEqual(session.check_model_available(lambda: None)["status"], "unverified")
+        self.assertEqual(session.check_model_available(lambda: [])["status"], "not_listed")
         with tempfile.TemporaryDirectory() as d:
             project = make_project(d)
-            with self.assertRaises(session.SessionError):
-                self.prep("dev", project, catalog_reader=lambda: ["gpt-6-luna"])
+            for reader in (lambda: ["gpt-6-luna"], lambda: None, lambda: []):
+                r = self.prep("dev", project, catalog_reader=reader)
+                cmd = r["command"]
+                self.assertEqual(cmd[cmd.index("-m") + 1], "gpt-6.1-sol")
+                self.assertEqual(r["model"]["model"], "gpt-6.1-sol")
+                self.assertNotIn("gpt-6-luna", " ".join(cmd))
+
+    def test_codex_failure_is_reported_without_fallback(self):
+        with tempfile.TemporaryDirectory() as d:
+            project = make_project(d)
+            bin_dir = Path(d) / "bin"
+            bin_dir.mkdir()
+            import shutil
+            (bin_dir / "git").symlink_to(shutil.which("git"))
+            fake = bin_dir / "codex"
+            fake.write_text("#!/bin/sh\necho \"ARGS: $*\" >&2\nexit 7\n")
+            fake.chmod(0o755)
+            env = {**os.environ, "PYTHONPATH": str(ROOT), "PATH": str(bin_dir), "HARNESS_STATE_ROOT": str(session.STATE_ROOT)}
+            out = subprocess.run([sys.executable, "-m", "harness", "start", "qa", "--project", str(project)], env=env, capture_output=True, text=True)
+            self.assertEqual(out.returncode, 7)
+            self.assertIn("-m gpt-6.1-sol", out.stderr)
+            self.assertIn("no other model was tried", out.stderr)
+            self.assertEqual(out.stderr.count("-m gpt-6.1-sol"), 1)
 
     def test_every_mode_command_pins_sol_for_main_and_all_subagents(self):
         with tempfile.TemporaryDirectory() as d:
@@ -104,6 +123,7 @@ class SessionTests(unittest.TestCase):
                 r = self.prep("dev", project, dry_run=False, catalog_reader=None)
             self.assertEqual(r["skills"]["recognition"]["checked"], False)
             self.assertEqual(r["model"]["status"], "unverified")
+            self.assertIn("command", r)
 
     def test_missing_codex_is_a_launch_error_not_a_config_error(self):
         with tempfile.TemporaryDirectory() as d:
@@ -112,7 +132,7 @@ class SessionTests(unittest.TestCase):
             bin_dir = Path(d) / "bin"
             bin_dir.mkdir()
             (bin_dir / "git").symlink_to(shutil.which("git"))
-            env = {**os.environ, "PYTHONPATH": str(ROOT), "PATH": str(bin_dir)}
+            env = {**os.environ, "PYTHONPATH": str(ROOT), "PATH": str(bin_dir), "HARNESS_STATE_ROOT": str(session.STATE_ROOT)}
             out = subprocess.run([sys.executable, "-m", "harness", "start", "qa", "--project", str(project)], env=env, capture_output=True, text=True)
             self.assertEqual(out.returncode, 127)
             self.assertIn("launch error", out.stderr)
@@ -215,6 +235,82 @@ class SessionTests(unittest.TestCase):
             self.assertNotIn("not_integrated", last)
             self.assertNotIn("stale", last)
             self.git(project, "worktree", "prune")
+
+    def test_state_cli_workspace_from_cwd_not_from_project_flag(self):
+        with tempfile.TemporaryDirectory() as d:
+            project = make_project(d)
+            other = Path(d) / "other"
+            other.mkdir()
+            self.git(other, "init", "-q")
+            r = self.prep("optimize", project, dry_run=False)
+            wt = Path(r["isolation"]["path"])
+            sub = wt / "nested"
+            sub.mkdir()
+            self.assertEqual(session.detect_workdir(project, wt), wt.resolve())
+            self.assertEqual(session.detect_workdir(project, sub), wt.resolve())
+            self.assertIsNone(session.detect_workdir(project, project))
+            self.assertIsNone(session.detect_workdir(project, other))
+            self.assertIsNone(session.detect_workdir(project, Path(d)))
+            clone = Path(d) / "clone"
+            self.git(Path(d), "clone", "-q", str(project), str(clone))
+            import shutil
+            fake_project = Path(d) / "q"
+            fake_project.mkdir()
+            fakewt = session.state_dir(fake_project.resolve()) / "optimize-worktree"
+            fakewt.parent.mkdir(parents=True)
+            shutil.move(str(clone), str(fakewt))
+            self.assertIsNone(session.detect_workdir(fake_project.resolve(), fakewt))  # unrelated clone on wrong branch
+            plain = wt.parent / "decoy"
+            plain.mkdir()
+            self.assertIsNone(session.detect_workdir(project, plain))
+            env = {**os.environ, "PYTHONPATH": str(ROOT)}
+            # the harness reads STATE_ROOT from the real repo, so run the CLI against the real default only for the shape check below
+            for cwd, expect in ((sub, "worktree"), (project, "project"), (other, "project")):
+                rec = session.state_add(project, "optimize", "perf", "x", workdir=session.detect_workdir(project, cwd))
+                self.assertEqual(rec["workspace"]["kind"], expect)
+                if expect == "worktree":
+                    self.assertEqual(rec["workspace"]["path"], str(wt.resolve()))
+                    self.assertEqual(rec["workspace"]["branch"], "harness/optimize")
+                else:
+                    self.assertEqual(rec["workspace"]["path"], str(project.resolve()))
+            # DEV view: worktree record is not_integrated only if dirty/unmerged; project records never are
+            kinds = [(x["workspace"]["kind"], x.get("not_integrated", False)) for x in session.state_show(project)["records"] if x["kind"] == "perf"]
+            self.assertEqual(kinds[0], ("worktree", False))  # clean worktree at project HEAD; installed skills do not count as dirty
+            self.assertEqual(kinds[1], ("project", False))
+            self.git(project, "worktree", "prune")
+
+    def test_state_cli_end_to_end_uses_cwd_worktree_with_explicit_project(self):
+        with tempfile.TemporaryDirectory() as d:
+            project = make_project(d)
+            state = session.STATE_ROOT
+            code = ("import sys,os;from pathlib import Path;from harness import session;session.STATE_ROOT=Path(os.environ['ST']);"
+                    "from harness.__main__ import main;sys.argv=['harness']+sys.argv[1:];sys.exit(main())")
+            env = {**os.environ, "PYTHONPATH": str(ROOT), "ST": str(state)}
+            r = self.prep("optimize", project, dry_run=False)
+            wt = Path(r["isolation"]["path"])
+            (wt / "o.py").write_text("1")
+            out = subprocess.run([sys.executable, "-c", code, "state", "add", "--project", str(project), "--session", "optimize", "--kind", "perf", "--text", "t"],
+                                 cwd=wt, env=env, capture_output=True, text=True)
+            self.assertEqual(out.returncode, 0, out.stderr)
+            rec = json.loads(out.stdout)
+            self.assertEqual(rec["workspace"]["kind"], "worktree")
+            self.assertTrue(rec["workspace"]["dirty"])
+            shown = subprocess.run([sys.executable, "-c", code, "state", "show", "--project", str(project)], cwd=project, env=env, capture_output=True, text=True)
+            got = json.loads(shown.stdout)
+            self.assertNotEqual(got["project_fingerprint"], rec["fingerprint"])
+            self.assertTrue(got["records"][-1]["not_integrated"])
+            self.assertNotIn("stale", got["records"][-1])
+            self.git(project, "worktree", "prune")
+
+    def test_dirty_ignores_only_untracked_harness_skills(self):
+        with tempfile.TemporaryDirectory() as d:
+            project = make_project(d)
+            (project / ".agents").mkdir()
+            (project / ".agents/t").write_text("a")
+            self.git(project, "add", "-A"); self.git(project, "commit", "-qm", "agents")
+            self.assertFalse(session._workspace(project, None)["dirty"])
+            (project / ".agents/t").write_text("b")
+            self.assertTrue(session._workspace(project, None)["dirty"])
 
     def test_exam_flag_uses_exam_start_gate(self):
         with tempfile.TemporaryDirectory() as d:

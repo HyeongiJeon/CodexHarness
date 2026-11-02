@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -19,7 +20,7 @@ from pathlib import Path
 from .install import install_skills
 from .roles import MODEL, ROOT, launch_overrides
 
-STATE_ROOT = ROOT / ".harness" / "sessions"
+STATE_ROOT = Path(os.environ.get("HARNESS_STATE_ROOT") or ROOT / ".harness" / "sessions")
 BASE_DEV = ["requirement-discovery", "completion-verification", "decision-and-evidence-recording",
             "independent-code-review", "parallel-implementation", "rapid-mvp-development", "systematic-debugging"]
 WEB = ["web-application-development", "web-runtime-debugging", "web-flow-verification", "web-ui-patterns", "frontend-design"]
@@ -111,9 +112,9 @@ class SessionError(ValueError):
 
 
 def check_model_available(catalog_reader=None) -> dict:
-    """Sol 6.1 is the only allowed model. Absence from a readable catalog is an error: there is no fallback.
+    """Advisory only: the catalog never blocks a launch and never selects another model.
 
-    A catalog entry is availability evidence only, never proof that a model call succeeds.
+    Sol 6.1 is the only allowed model. Whether it is usable is decided by the real Codex run (explicit -m, no fallback).
     """
     slugs = None
     if catalog_reader is not None:
@@ -131,9 +132,23 @@ def check_model_available(catalog_reader=None) -> dict:
         return {"model": MODEL, "catalog": "unreadable", "status": "unverified",
                 "note": "catalog could not be read; the explicit -m flag makes Codex fail loudly if the model is unavailable (no fallback)"}
     if MODEL not in slugs:
-        raise SessionError(f"required model {MODEL} is not available in this Codex's model catalog; refusing to fall back to another model")
+        return {"model": MODEL, "catalog": "does not list model", "status": "not_listed",
+                "note": f"{MODEL} is not in the local catalog (catalogs can be incomplete); launching anyway - if Codex rejects the model it fails and nothing falls back"}
     return {"model": MODEL, "catalog": "lists model", "status": "listed",
             "note": "catalog listing is not proof that a model call succeeds; only a real run proves it"}
+
+
+def detect_workdir(project: Path, cwd: Path | None = None) -> Path | None:
+    """The registered OPTIMIZE worktree of THIS project if cwd is inside it; any other directory is not a workspace."""
+    cwd = (cwd or Path.cwd()).resolve()
+    wt = (state_dir(project) / "optimize-worktree").resolve()
+    if not wt.is_dir() or (cwd != wt and wt not in cwd.parents):
+        return None
+    top = _git(wt, "rev-parse", "--show-toplevel")
+    branch = _git(wt, "rev-parse", "--abbrev-ref", "HEAD")
+    if top is None or Path(top.strip()).resolve() != wt or branch is None or branch.strip() != "harness/optimize":
+        return None
+    return wt
 
 
 def _git(project: Path, *args: str) -> str | None:
@@ -188,7 +203,8 @@ def _workspace(project: Path, workdir: Path | None) -> dict:
         info["branch"] = branch.strip()
     if commit is not None:
         info["commit"] = commit.strip()
-    info["dirty"] = bool((_git(where, "status", "--porcelain") or "").strip())
+    # harness-installed skills (.agents) do not count as the user's uncommitted work
+    info["dirty"] = any(line and not line.startswith("?? .agents/") for line in (_git(where, "status", "--porcelain") or "").splitlines())
     return info
 
 

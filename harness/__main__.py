@@ -173,12 +173,15 @@ def main() -> int:
         env["PYTHONPATH"] = os.pathsep.join(x for x in env.get("PYTHONPATH", "").split(os.pathsep) if x and Path(x).resolve() != ROOT)
         if not env["PYTHONPATH"]:
             del env["PYTHONPATH"]
-        return subprocess.call(report["command"], env=env)
+        code = subprocess.call(report["command"], env=env)
+        if code > 0 and code != 130:
+            print(f"codex exited with code {code}. Required model: {MODEL} (single-model policy: no other model was tried). "
+                  "If the output above reports the model as unavailable or rate-limited, resolve that and re-run.", file=sys.stderr)
+        return code
     elif args.command == "state":
-        from .session import STATE_ROOT, find_project, state_add, state_show
+        from .session import detect_workdir, find_project, state_add, state_show
         project = find_project(args.project)
-        cwd = Path.cwd().resolve()
-        workdir = cwd if args.project is None and STATE_ROOT in cwd.parents else None
+        workdir = detect_workdir(project)
         if args.action == "add":
             if not args.kind or not args.text:
                 parser.error("state add requires --kind and --text")
