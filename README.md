@@ -31,7 +31,7 @@ flowchart LR
 | `AGENTS.md` | 리드 운영 원칙·과제 우선·시험 제한 |
 | `.codex/config.toml`, `.codex/agents/` | 역할별 모델·추론 강도, 최대 4개 설정값·깊이 1 |
 | `configs/inherited/` | 역할 모델·강도를 고정하지 않는 호환 번들 |
-| `.agents/skills/` | 조건별 23개 Skill·필요할 때만 읽는 references |
+| `.agents/skills/` | 조건별 24개 Skill·필요할 때만 읽는 references |
 | `harness/` | doctor·명시적 역할 실행기·계획 검사·안전한 Skill 복사·CSV·HTTP 예제·실제 benchmark |
 | `examples/`, `tests/`, `benchmarks/` | 합성 입력·의도적 결함·회귀 검사·재현 가능한 측정 결과 |
 | `.harness/` | 원시 실행 증거의 로컬 보관; Git 제외 |
@@ -56,6 +56,22 @@ flowchart LR
 
 설치 CLI는 **0.163.0**입니다. [공식 문서·버전별 소스 조사](docs/codex-research.md)는 최신 소스 스냅샷과 설치 버전을 분리합니다. V1의 `fork_context=false`, hosted 도구의 `fork_turns="none"`, 동시 한도 계산은 같은 API라고 가정하지 않습니다. 이 환경의 실제 실행에는 hosted 형태가 노출됐습니다. 새 문맥도 파일 시스템은 공유합니다. [계획 계약](examples/task-plan.json)과 `plan-check`는 소유권 충돌·의존성을 확인하지만 파일 잠금은 아닙니다.
 
+## 전문 세션 원클릭 실행 (V2)
+```bash
+./CodexHarness/start.sh dev|explain|optimize|qa|preview [--project DIR] [--dry-run] [--routing auto|routed|inherited]
+```
+Codex가 **시작되기 전에** 프로젝트 탐지(`--project` 또는 현재 git 루트)·`validate`·스택에 맞는 Skill 설치(기존 파일 보존, 반복 실행 안전)·모델 카탈로그(`codex debug models`) 확인·routed/inherited 선택·Skill 인식 확인(`codex debug prompt-input`, 모델 호출 없음)을 하고 보고한 뒤 세션을 시작한다. 이미 실행 중인 Codex(Cofa 등)에는 소급 적용되지 않는다: `--dry-run`으로 준비하고 새 세션에서 시작한다.
+
+| 모드 | 내용 | 강제되는 것 / 지침뿐인 것 |
+|---|---|---|
+| `dev` | 협업 개발 팀(`--exam`이면 `EXAM_START.md` 승인 게이트) | 승인 게이트는 지침 |
+| `explain` | 읽기 전용 코드·구조 설명 | `codex -s read-only` 플래그로 강제(플랫폼이 더 엄격하면 그쪽) |
+| `optimize` | 측정 기반 최적화, `harness measure` | 별도 git worktree(마지막 커밋 기준, 미커밋 변경 제외); git이 아니면 `--in-place` 필요 |
+| `qa` | QA Lead(기존 qa/data/reviewer 재사용), PASS/FAIL/UNVERIFIED 보고(`templates/qa-report.md`) | 제품 코드 비수정은 지침뿐 |
+| `preview` | 웹/미리보기 계층 진단, `preview-baseline`, [Cofa 런북](docs/preview/cofa-runbook.md) | 지침 |
+
+세션 공유 기록은 프로젝트 밖(`.harness/sessions/`)에 `harness state add|show`로 남기며, 코드가 바뀐 뒤의 검증/성능/결함 기록은 `stale`로 표시된다. 추가 CLI: `measure`(반복 시간·최대 RSS·출력 해시 비교), `data sqlite`(읽기 전용 스키마·정합성·SELECT), `data profile`의 수치 통계·이상치 후보·중복, `web-probe --host-header/--origin`과 바인드 주소 보고.
+
 ## 기존 과제 프로젝트에서 사용
 
 하네스 저장소의 AGENTS.md나 설정을 원래 프로젝트에 덮어쓰지 않습니다. 다음 명령은 하네스 디렉터리에서 실행합니다.
@@ -73,7 +89,7 @@ python3 -m harness launch --project /path/to/assignment --mode inherited --model
 
 ## Skill과 도구
 
-[23개 Skill의 전체 목록과 자동 선택 조건](docs/skills.md)을 제공합니다. 기존 17개에 문서 검색·근거 종합·출처 검증 3개, 웹 런타임 디버깅·UI 패턴·흐름 검증 3개를 추가했으며 `name`·`description`으로 후보를 발견하고 본문과 references를 필요한 때만 읽습니다. 모든 Skill을 한꺼번에 로딩하지 않습니다. 기존 smoke에서는 requirements 에이전트가 선택한 Skill을 실제 읽었습니다. 새 Skill·역할은 새 세션에서 발견을 확인합니다.
+[24개 Skill의 전체 목록과 자동 선택 조건](docs/skills.md)을 제공합니다. 기존 17개에 문서 검색·근거 종합·출처 검증 3개, 웹 런타임 디버깅·UI 패턴·흐름 검증 3개를 추가했으며 `name`·`description`으로 후보를 발견하고 본문과 references를 필요한 때만 읽습니다. 모든 Skill을 한꺼번에 로딩하지 않습니다. 기존 smoke에서는 requirements 에이전트가 선택한 Skill을 실제 읽었습니다. 새 Skill·역할은 새 세션에서 발견을 확인합니다.
 
 기본 도구는 제공 Codex·터미널·Git·Python 표준 라이브러리입니다. CSV 스키마, 결측·중복·날짜·금액 검증, Decimal 집계·0 분모 처리, 로컬 JSON 오류 처리와 HTTP 회귀 검사를 제공합니다. MCP·플러그인은 기본으로 설치하거나 설정하지 않습니다. [도구·네트워크·인증·라이선스 범위와 대안](docs/tools-and-licenses.md)을 확인하세요.
 

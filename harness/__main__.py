@@ -1,5 +1,6 @@
 import argparse
 import json
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -26,6 +27,34 @@ def main() -> int:
     launch.add_argument("--model", help="explicit verified main model; omitted means inherit installed default")
     launch.add_argument("--bundle", type=Path, help="explicit generated bundle directory instead of checked-in mode")
     launch.add_argument("--dry-run", action="store_true")
+    start = sub.add_parser("start", help="one-command specialist session: dev | explain | optimize | qa | preview")
+    start.add_argument("mode", choices=("dev", "explain", "optimize", "qa", "preview"))
+    start.add_argument("--project", type=Path, help="task project root (default: git root of the current directory)")
+    start.add_argument("--routing", choices=("auto", "routed", "inherited"), default="auto")
+    start.add_argument("--model", help="explicit verified main model")
+    start.add_argument("--exam", action="store_true", help="dev only: start from EXAM_START.md with its approval gate")
+    start.add_argument("--in-place", action="store_true", help="optimize: allow editing the live project when no git worktree is possible")
+    start.add_argument("--no-skills", action="store_true")
+    start.add_argument("--dry-run", action="store_true")
+    state = sub.add_parser("state", help="concise local cross-session record outside the project (.harness/sessions)")
+    state.add_argument("action", choices=("add", "show"))
+    state.add_argument("--project", type=Path)
+    state.add_argument("--session", default="dev")
+    state.add_argument("--kind", help="command|decision|change|qa-result|defect|perf|preview|open-item|note")
+    state.add_argument("--text")
+    measure = sub.add_parser("measure", help="repeat-run time/peak-RSS/output-hash measurement of a command; compare to a baseline")
+    measure.add_argument("--repeat", type=int, default=5)
+    measure.add_argument("--warmup", type=int, default=1)
+    measure.add_argument("--timeout", type=float, default=300)
+    measure.add_argument("--label", default="run")
+    measure.add_argument("--out", type=Path)
+    measure.add_argument("--baseline", type=Path)
+    measure.add_argument("--cwd", type=Path)
+    measure.add_argument("argv", nargs=argparse.REMAINDER, help="-- command ...")
+    pb = sub.add_parser("preview-baseline", help="minimal static diagnostic server to separate platform preview faults from app faults")
+    pb.add_argument("--port", type=int, default=8780)
+    pb.add_argument("--host", default="127.0.0.1", help="use 0.0.0.0 only when the platform preview must reach it from outside")
+    pb.add_argument("--dir", type=Path)
     task = sub.add_parser("plan-check", help="check dependency and file ownership contracts")
     task.add_argument("plan", type=Path)
     data = sub.add_parser("data", help="clean a local sales-schema CSV and print exact aggregates/issues")
@@ -34,6 +63,7 @@ def main() -> int:
     data.add_argument("--config", type=Path)
     data.add_argument("--sample-rows", type=int, default=1000)
     data.add_argument("--encoding")
+    data.add_argument("--query", help="data sqlite: one read-only SELECT to run (row-capped)")
     data.add_argument("--value")
     data.add_argument("--group-by", action="append")
     data.add_argument("--id-column")
@@ -95,6 +125,8 @@ def main() -> int:
     demo.add_argument("--host", default="127.0.0.1")
     wp = sub.add_parser("web-probe", help="local HTTP diagnosis: port, HTML, assets, API paths (localhost only, no browser)")
     wp.add_argument("url")
+    wp.add_argument("--host-header", help="also request / with this Host header to detect blocked-host rejections")
+    wp.add_argument("--origin", help="also send this Origin to /api paths and report CORS headers")
     wp.add_argument("--path", action="append", default=[], help="extra path such as /api/items to check for HTML fallback")
     bench = sub.add_parser("benchmark", help="run actual Codex coding exercise; private evidence stays local")
     bench.add_argument("--mode", choices=("single", "multi", "smoke"), default="smoke")
@@ -130,6 +162,45 @@ def main() -> int:
             print(json.dumps(cmd, indent=2))
         else:
             return subprocess.call(cmd)
+    elif args.command == "start":
+        from .session import prepare
+        if args.exam and args.mode != "dev":
+            parser.error("--exam applies to dev only")
+        report = prepare(args.mode, args.project, routing=args.routing, model=args.model, dry_run=args.dry_run,
+                         exam=args.exam, in_place=args.in_place, skip_skills=args.no_skills)
+        print(json.dumps(report, indent=2, ensure_ascii=False), file=sys.stderr if not args.dry_run else sys.stdout)
+        if args.dry_run:
+            return 0
+        env = dict(os.environ)
+        env["PYTHONPATH"] = os.pathsep.join(x for x in env.get("PYTHONPATH", "").split(os.pathsep) if x and Path(x).resolve() != ROOT)
+        if not env["PYTHONPATH"]:
+            del env["PYTHONPATH"]
+        return subprocess.call(report["command"], env=env)
+    elif args.command == "state":
+        from .session import STATE_ROOT, find_project, state_add, state_show
+        project = find_project(args.project)
+        cwd = Path.cwd().resolve()
+        workdir = cwd if args.project is None and STATE_ROOT in cwd.parents else None
+        if args.action == "add":
+            if not args.kind or not args.text:
+                parser.error("state add requires --kind and --text")
+            print(json.dumps(state_add(project, args.session, args.kind, args.text, workdir), ensure_ascii=False, indent=2))
+        else:
+            print(json.dumps(state_show(project, args.kind, workdir=workdir), ensure_ascii=False, indent=2))
+    elif args.command == "measure":
+        from .measure import measure as run_measure
+        argv = args.argv[1:] if args.argv[:1] == ["--"] else args.argv
+        if not argv:
+            parser.error("measure requires a command after --")
+        report = run_measure(argv, args.repeat, args.warmup, args.timeout, args.label, args.cwd,
+                             load_json(args.baseline) if args.baseline else None)
+        if args.out:
+            args.out.write_text(json.dumps(report, ensure_ascii=False, indent=2))
+        print(json.dumps(report, ensure_ascii=False, indent=2))
+        return 0 if report["status"] in {"ok", "baseline"} else 1
+    elif args.command == "preview-baseline":
+        from .web_probe import serve_baseline
+        serve_baseline(args.host, args.port, args.dir)
     elif args.command == "plan-check":
         from .tasks import validate_plan
         errors = validate_plan(json.loads(args.plan.read_text()))
@@ -147,6 +218,11 @@ def main() -> int:
             if len(args.files) != 1:
                 parser.error('data profile requires exactly one file')
             report = profile_file(args.files[0], args.sample_rows, args.encoding)
+        elif operation == 'sqlite':
+            from .large_data import sqlite_inspect
+            if len(args.files) != 1:
+                parser.error('data sqlite requires exactly one database file')
+            report = sqlite_inspect(args.files[0], args.query)
         elif operation == 'aggregate':
             from .large_data import aggregate_files
             config = load_json(args.config) if args.config else {}
@@ -225,7 +301,7 @@ def main() -> int:
         return 0 if report['status'] in {'verified', 'supported'} else 1
     elif args.command == "web-probe":
         from .web_probe import main as probe_main
-        text, code = probe_main(args.url, args.path)
+        text, code = probe_main(args.url, args.path, args.host_header, args.origin)
         print(text)
         return code
     elif args.command == "benchmark":

@@ -42,15 +42,17 @@ class _LocalRedirects(HTTPRedirectHandler):
 _OPENER = build_opener(_LocalRedirects)
 
 
-def fetch(url: str, timeout: float = 5.0, limit: int = 2_000_000) -> dict:
+def fetch(url: str, timeout: float = 5.0, limit: int = 2_000_000, headers: dict | None = None) -> dict:
     """GET without following redirects' semantics; report status, type and a body prefix."""
     try:
-        with _OPENER.open(Request(url, headers={"Accept": "*/*"}), timeout=timeout) as r:
+        with _OPENER.open(Request(url, headers={"Accept": "*/*", **(headers or {})}), timeout=timeout) as r:
             body = r.read(limit)
             return {"url": url, "final_url": r.geturl(), "status": r.status,
-                    "content_type": r.headers.get("Content-Type", ""), "bytes": len(body), "body": body}
+                    "content_type": r.headers.get("Content-Type", ""), "bytes": len(body), "body": body,
+                    "acao": r.headers.get("Access-Control-Allow-Origin")}
     except HTTPError as exc:
-        return {"url": url, "status": exc.code, "content_type": exc.headers.get("Content-Type", ""), "bytes": 0, "body": b""}
+        return {"url": url, "status": exc.code, "content_type": exc.headers.get("Content-Type", ""), "bytes": 0, "body": b"",
+                "acao": exc.headers.get("Access-Control-Allow-Origin")}
     except (URLError, OSError, ValueError) as exc:
         return {"url": url, "status": None, "error": str(getattr(exc, "reason", exc)), "bytes": 0, "body": b""}
 
@@ -63,7 +65,29 @@ def listening(host: str, port: int, timeout: float = 2.0) -> bool:
         return False
 
 
-def probe(url: str, extra_paths: list[str] | None = None) -> dict:
+def bind_addresses(port: int) -> list[str] | None:
+    """Local listening addresses for a port from /proc/net/tcp{,6} (Linux); None when unreadable."""
+    found, readable = [], False
+    for name, width in (("tcp", 8), ("tcp6", 32)):
+        try:
+            lines = open(f"/proc/net/{name}").read().splitlines()[1:]
+        except OSError:
+            continue
+        readable = True
+        for line in lines:
+            parts = line.split()
+            addr, _, hexport = parts[1].partition(":")
+            if parts[3] == "0A" and int(hexport, 16) == port:
+                if set(addr) == {"0"}:
+                    found.append("0.0.0.0" if width == 8 else "::")
+                elif width == 8:
+                    found.append(".".join(str(int(addr[i:i + 2], 16)) for i in (6, 4, 2, 0)))
+                else:
+                    found.append("ipv6:" + addr)
+    return sorted(set(found)) if readable else None
+
+
+def probe(url: str, extra_paths: list[str] | None = None, host_header: str | None = None, cors_origin: str | None = None) -> dict:
     parsed = urlparse(url)
     if parsed.scheme not in ("http", "https") or not parsed.hostname:
         raise ValueError("url must be http(s)://host:port/...")
@@ -80,6 +104,9 @@ def probe(url: str, extra_paths: list[str] | None = None) -> dict:
     report: dict = {"url": url, "port_listening": listening(host, port), "resources": [], "extra": [], "findings": findings}
     if parsed.hostname == "0.0.0.0":
         report["note"] = "0.0.0.0 is a bind address, not a browse URL; probed 127.0.0.1 instead"
+    report["bind_addresses"] = bind_addresses(port)
+    if report["bind_addresses"] and not ({"0.0.0.0", "::"} & set(report["bind_addresses"])):
+        flag("warn", "preview", f"port {port} is bound only to {report['bind_addresses']}: a preview/proxy outside this process namespace may not reach it; try 0.0.0.0 if the platform requires it")
     if not report["port_listening"]:
         flag("error", "server", f"nothing accepts TCP connections on {host}:{port}: process not running, crashed, or other port")
         report["verdict"] = "server_down"
@@ -101,6 +128,11 @@ def probe(url: str, extra_paths: list[str] | None = None) -> dict:
     refs.feed(text)
     if not refs.refs and not refs.inline_scripts and refs.root_ids:
         flag("error", "frontend", "HTML has an empty app root and no script: bundle not referenced (build missing or wrong template)")
+    if host_header:
+        alt = fetch(url, headers={"Host": host_header})
+        report["host_header_check"] = {"host": host_header, "status": alt["status"]}
+        if alt["status"] != page["status"]:
+            flag("error", "proxy", f"Host: {host_header} -> {alt['status']} but direct -> {page['status']}: dev server blocks this host (Vite allowedHosts / Django ALLOWED_HOSTS / webpack allowedHosts)")
     for kind, ref in refs.refs:
         target = urljoin(url, ref)
         origin = urlparse(target)
@@ -129,12 +161,16 @@ def probe(url: str, extra_paths: list[str] | None = None) -> dict:
     for path in extra_paths or []:
         if not path.startswith("/") or path.startswith("//"):
             raise ValueError(f"--path must be an absolute path like /api/items, got {path!r}")
-        got = fetch(urljoin(url, path))
+        got = fetch(urljoin(url, path), headers={"Origin": cors_origin} if cors_origin else None)
         entry = {"path": path, "status": got["status"], "content_type": got.get("content_type"), "bytes": got["bytes"]}
         if got["status"] == 200 and "html" in (got.get("content_type") or "").lower():
             flag("error", "proxy", f"{path} returned HTML: an endpoint you listed is hitting the SPA fallback, not the backend (proxy/route); ignore only if it is meant to be a page")
         elif got["status"] != 200:
             flag("error", "proxy", f"{path} -> {got['status']} {got.get('error', '')}".strip())
+        if cors_origin:
+            entry["access_control_allow_origin"] = got.get("acao")
+            if got.get("acao") not in ("*", cors_origin):
+                flag("warn", "proxy", f"{path}: no CORS allow for Origin {cors_origin} (matters only if the page and API are different origins)")
         report["extra"].append(entry)
     errors = [f for f in findings if f["severity"] == "error"]
     if not errors:
@@ -146,6 +182,58 @@ def probe(url: str, extra_paths: list[str] | None = None) -> dict:
     return report
 
 
-def main(url: str, paths: list[str]) -> tuple[str, int]:
-    report = probe(url, paths)
+def main(url: str, paths: list[str], host_header: str | None = None, cors_origin: str | None = None) -> tuple[str, int]:
+    report = probe(url, paths, host_header, cors_origin)
     return json.dumps(report, indent=2, ensure_ascii=False), 0 if report["verdict"] == "server_and_assets_ok" else 1
+
+
+BASELINE_PAGE = """<!doctype html><meta charset=utf-8><title>preview baseline</title>
+<h1 id=s>HTML loaded (static)</h1><p id=j>JS: not run</p><p id=a>API: not run</p>
+<script src="baseline.js"></script>"""
+BASELINE_JS = """document.getElementById('j').textContent='JS: ok (external script ran)';
+fetch('api/ping').then(r=>r.json()).then(d=>{document.getElementById('a').textContent='API: ok '+JSON.stringify(d)}).catch(e=>{document.getElementById('a').textContent='API: FAILED '+e});"""
+
+
+def serve_baseline(host: str, port: int, directory=None) -> None:
+    """Minimal known-good server. If this shows in the preview but the app does not, the platform preview works."""
+    import http.server
+    import pathlib
+    root = pathlib.Path(directory) if directory else None
+
+    class Handler(http.server.BaseHTTPRequestHandler):
+        def do_GET(self):
+            from urllib.parse import unquote
+            path = unquote(self.path.split("?")[0])
+            if path == "/api/ping":
+                body, ctype = b'{"pong":true}', "application/json"
+            elif root is not None:
+                target = (root / path.lstrip("/")).resolve()
+                if path.endswith("/"):
+                    target = target / "index.html"
+                if root.resolve() not in target.parents and target != root.resolve() or not target.is_file():
+                    self.send_error(404)
+                    return
+                body = target.read_bytes()
+                ctype = {".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".json": "application/json"}.get(target.suffix, "application/octet-stream")
+            elif path in ("/", "/index.html"):
+                body, ctype = BASELINE_PAGE.encode(), "text/html; charset=utf-8"
+            elif path == "/baseline.js":
+                body, ctype = BASELINE_JS.encode(), "text/javascript"
+            else:
+                self.send_error(404)
+                return
+            self.send_response(200)
+            self.send_header("Content-Type", ctype)
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+        def log_message(self, fmt, *a):
+            print("baseline:", fmt % a, flush=True)
+
+    server = http.server.ThreadingHTTPServer((host, port), Handler)
+    print(f"baseline server on {host}:{port} (open http://127.0.0.1:{port}/ or your platform's preview for port {port}); Ctrl-C to stop", flush=True)
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        pass

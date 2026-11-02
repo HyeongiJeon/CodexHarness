@@ -1,6 +1,6 @@
 # Codex Harness 스킬 안내
 
-`.agents/skills/`의 23개 스킬은 이름과 `SKILL.md`의 `description` 메타데이터를 바탕으로 요청에 맞는 경우 자동으로 후보가 됩니다. 사용자는 `$skill-name`으로 직접 지정할 수도 있습니다. 자동 후보 등록은 모든 스킬의 본문을 항상 읽는다는 뜻이 아닙니다. 관련성이 있는 스킬의 `SKILL.md`만 적용 시점에 읽고, 그 안에서 연결한 참고 문서는 해당 세부 작업이 필요할 때만 읽습니다. 이 점진적 공개 방식으로 전체 목록을 한꺼번에 불러오지 않습니다.
+`.agents/skills/`의 24개 스킬은 이름과 `SKILL.md`의 `description` 메타데이터를 바탕으로 요청에 맞는 경우 자동으로 후보가 됩니다. 사용자는 `$skill-name`으로 직접 지정할 수도 있습니다. 자동 후보 등록은 모든 스킬의 본문을 항상 읽는다는 뜻이 아닙니다. 관련성이 있는 스킬의 `SKILL.md`만 적용 시점에 읽고, 그 안에서 연결한 참고 문서는 해당 세부 작업이 필요할 때만 읽습니다. 이 점진적 공개 방식으로 전체 목록을 한꺼번에 불러오지 않습니다.
 
 명시적인 프로젝트 지침과 과제의 운영 제한이 스킬 지침보다 우선합니다. 특히 시험 프로필은 브라우저·GUI·컴퓨터 사용 자동화를 허용하지 않습니다. 웹 결과 확인은 로컬 HTTP 요청, 사용자가 직접 조작하는 로컬 미리보기, 정적 파일 검사로 진행합니다.
 
@@ -13,6 +13,7 @@
 | 결정·증거 기록 | 중요한 선택, 실험, 검증 기록의 추적성 유지 | [decision-and-evidence-recording](../.agents/skills/decision-and-evidence-recording/SKILL.md) |
 | 문서 처리 | PDF, DOCX, 스프레드시트, 프레젠테이션의 구조·레이아웃 작업 | [document-processing](../.agents/skills/document-processing/SKILL.md) |
 | 최종 전달 검증 | 제출 직전 산출물·실행 방법·한계 점검 | [final-delivery-verification](../.agents/skills/final-delivery-verification/SKILL.md) |
+| 성능 최적화 | 측정 기반 알고리즘·쿼리·I/O 최적화와 전후 비교 | [performance-optimization](../.agents/skills/performance-optimization/SKILL.md) |
 | 프런트엔드 디자인 | 웹 화면의 위계, 반응형 레이아웃, 상호작용 상태 개선 | [frontend-design](../.agents/skills/frontend-design/SKILL.md) |
 | 독립 코드 리뷰 | 변경 코드의 실제 결함·회귀 위험에 대한 별도 검토 | [independent-code-review](../.agents/skills/independent-code-review/SKILL.md) |
 | 병렬 구현 | 명시적으로 허용된 독립 작업의 소유권 분리·통합 | [parallel-implementation](../.agents/skills/parallel-implementation/SKILL.md) |

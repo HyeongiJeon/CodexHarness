@@ -9,7 +9,7 @@ Exam profile: no Astra, computer-use, push, external uploads, or AI-prohibited w
 
 **Inputs:** Launch command, intended port, symptom (blank page, error text), framework (Vite/React, Flask, Express, static).
 
-Read [references/layers.md](references/layers.md) for the symptom-to-cause table and the browser-console checklist.
+Read [references/layers.md](references/layers.md) for the symptom-to-cause table and the browser-console checklist, and [references/cofa-preview.md](references/cofa-preview.md) for the restricted-preview checklist (baseline server, bind address, Host/CORS options).
 
 ## Procedure
 

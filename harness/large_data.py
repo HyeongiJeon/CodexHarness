@@ -179,6 +179,8 @@ def profile_file(path: Path | str, sample_rows: int = 1000, encoding: str | None
         schema = {name.strip(): Counter() for name in header[:256]}
         schema_truncated = len(header) > 256
     issues: Counter = Counter()
+    numbers: dict[str, list[float]] = {}
+    row_hashes: Counter = Counter()
     iterator = _rows(path, resolved_encoding)
     try:
         for _ in range(sample_rows):
@@ -191,7 +193,10 @@ def profile_file(path: Path | str, sample_rows: int = 1000, encoding: str | None
                 issues[issue] += 1
                 continue
             assert row is not None
+            row_hashes[hash(json.dumps(row, sort_keys=True, default=str))] += 1
             for name, item in row.items():
+                if _type(item) in ('integer', 'decimal') and len(numbers.get(name, ())) < 100000 and len(numbers) < 256:
+                    numbers.setdefault(name, []).append(float(_number(item)))
                 if name not in schema and len(schema) >= 256:
                     schema_truncated = True
                     continue
@@ -204,12 +209,21 @@ def profile_file(path: Path | str, sample_rows: int = 1000, encoding: str | None
     fields = []
     for name, counts in sorted(schema.items()):
         missing = counts.get('null', 0) + valid_sampled - sum(counts.values())
-        fields.append({'name': name, 'types': sorted(k for k in counts if k != 'null'),
-                       'type_counts': dict(sorted(counts.items())), 'nonempty': valid_sampled - missing, 'missing': missing})
+        field = {'name': name, 'types': sorted(k for k in counts if k != 'null'),
+                 'type_counts': dict(sorted(counts.items())), 'nonempty': valid_sampled - missing, 'missing': missing}
+        values = sorted(numbers.get(name, ()))
+        if len(values) >= 4:
+            q1, q3 = values[len(values) // 4], values[(3 * len(values)) // 4]
+            fence = 1.5 * (q3 - q1)
+            field['numeric'] = {'count': len(values), 'min': values[0], 'max': values[-1], 'q1': q1, 'q3': q3,
+                                'iqr_outliers': sum(1 for v in values if v < q1 - fence or v > q3 + fence),
+                                'scope': 'sample; outliers are candidates to inspect, not errors'}
+        fields.append(field)
     return {'path': str(path.resolve()), 'format': _format(path), 'size_bytes': path.stat().st_size,
             'encoding': resolved_encoding, 'sha256': _hash(path), 'sampled_rows': sampled,
             'sample_limit': sample_rows, 'counts_scope': 'sample', 'schema': fields,
             'sample': sample, 'sample_issues': dict(sorted(issues.items())),
+            'duplicate_rows_in_sample': sum(c - 1 for c in row_hashes.values() if c > 1),
             'schema_truncated': schema_truncated, 'schema_limit': 256, 'sample_column_limit': 50}
 
 
@@ -476,3 +490,34 @@ def aggregate_files(paths: list[Path | str], *, group_by: list[str], value: str,
                          'unit_scope': 'fixed scale per column; verify optional unit_column, otherwise caller declares homogeneous source units'},
             'spill': {'engine': 'sqlite', 'disk_backed': True, 'database_bytes': disk_bytes,
                       'cache_limit_kib': 8192, 'temporary_database_removed': True}}
+
+
+def sqlite_inspect(path: Path | str, query: str | None = None, max_rows: int = 50) -> dict:
+    """Read-only SQLite schema/row-count/null-count overview and an optional single SELECT (row-capped)."""
+    path = Path(path).resolve(strict=True)
+    con = sqlite3.connect(path.as_uri() + '?mode=ro', uri=True)
+    import time as _t
+    deadline = _t.monotonic() + 30
+    con.set_progress_handler(lambda: _t.monotonic() > deadline, 10000)
+    try:
+        con.execute('PRAGMA query_only=ON')
+        tables = []
+        for (name,) in con.execute("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name"):
+            quoted = '"' + name.replace('"', '""') + '"'
+            cols = con.execute(f'PRAGMA table_info({quoted})').fetchall()
+            total = con.execute(f'SELECT COUNT(*) FROM {quoted}').fetchone()[0]
+            nulls = {c[1]: con.execute(f'SELECT COUNT(*) FROM {quoted} WHERE "{c[1].replace(chr(34), chr(34) * 2)}" IS NULL').fetchone()[0] for c in cols[:64]}
+            tables.append({'table': name, 'rows': total, 'columns': [{'name': c[1], 'type': c[2], 'pk': bool(c[5]), 'notnull': bool(c[3])} for c in cols],
+                           'null_counts': nulls, 'foreign_keys': [dict(zip(('id', 'seq', 'table', 'from', 'to'), fk[:5])) for fk in con.execute(f'PRAGMA foreign_key_list({quoted})')]})
+        report = {'path': str(path), 'sha256': _hash(path), 'tables': tables,
+                  'foreign_key_violations': [list(r) for r in con.execute('PRAGMA foreign_key_check').fetchmany(50)]}
+        if query:
+            stripped = query.strip().rstrip(';')
+            if not stripped.lower().startswith(('select', 'with')) or ';' in stripped:
+                raise ValueError('only a single SELECT/WITH query is allowed')
+            cur = con.execute(stripped)
+            rows = cur.fetchmany(max_rows + 1)
+            report['query'] = {'columns': [d[0] for d in cur.description or []], 'rows': [list(r) for r in rows[:max_rows]], 'truncated': len(rows) > max_rows}
+        return report
+    finally:
+        con.close()

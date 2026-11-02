@@ -1,0 +1,62 @@
+# Cofa Web IDE 미리보기 런북
+
+목적: 웹 서버는 실행되는데 내부 미리보기가 실패하거나 빈 화면일 때, 원인 계층을 증거로 분리한다.
+
+## 확인 수준 표기
+- **[검증]** 이 하네스의 테스트나 로컬 실행으로 확인한 동작(일반 HTTP/OS 동작, `web-probe` 출력).
+- **[가정]** 일반적인 웹 IDE 미리보기에서 흔하지만 **Cofa에서 확인되지 않은** 동작. 사실로 쓰지 말고 사용자에게 확인을 요청한다.
+- Cofa 전용 URL·포트 설정·프록시 규칙은 공식 문서나 사용자가 직접 관찰해 알려 준 것만 이 문서의 "Cofa 관찰 기록"에 추가한다. 현재 알려진 것: 미리보기 화면에 포트를 지정하는 입력이 있다는 것뿐이다(`EXAM_START.md` 기준). 그 외는 모두 [가정]이다.
+
+## 1. 웹 서비스 시작 절차
+1. 프로젝트의 실제 실행 명령(README/`package.json` scripts)을 확인한다. 개발 서버 / 빌드 / 빌드 결과 서빙(preview/serve)을 구분한다.
+2. 서버를 백그라운드로 실행하고 로그에서 **실제 포트**와 주소를 읽는다(포트가 사용 중이면 프레임워크가 다른 포트로 바꾸기도 한다 [검증: Vite 등 일반 동작]).
+3. `ss -ltnp | grep :<포트>` 로 listen 여부와 바인드 주소 확인. `python3 -m harness web-probe http://127.0.0.1:<포트>/` 가 `bind_addresses`도 보여 준다 [검증].
+4. 첫 통합 시점에 이 절차를 수행한다. 마지막까지 미루지 않는다.
+
+## 2. 프레임워크별 일반 점검
+| 프레임워크 | 외부(컨테이너 밖) 접근용 실행 | 흔한 함정 |
+|---|---|---|
+| Vite | `vite --host 0.0.0.0 --port 5173` (`server.host`), 필요 시 `server.allowedHosts` | 프록시 환경에서 Host 거부, HMR WebSocket 연결 실패, `base` 오설정으로 자산 404 |
+| Next.js | `next dev -H 0.0.0.0 -p 3000` | 빌드 전 `start`, basePath |
+| React(CRA) | `HOST=0.0.0.0 PORT=3000 npm start` | `DANGEROUSLY_DISABLE_HOST_CHECK`는 보안상 마지막 수단 |
+| Flask | `flask run --host 0.0.0.0 --port 5000` / `app.run(host="0.0.0.0")` | debug reloader 이중 프로세스, 템플릿/정적 경로 |
+| FastAPI | `uvicorn app:app --host 0.0.0.0 --port 8000` | `/docs`만 되고 프런트가 비는 경우(정적 마운트 누락) |
+| Express | `app.listen(PORT, "0.0.0.0")` | SPA 폴백이 `/api`·`/assets`를 삼킴 |
+| 정적 파일 | `python3 -m http.server <포트> --bind 0.0.0.0` 또는 `harness preview-baseline`(기본 127.0.0.1 바인딩; 플랫폼 미리보기가 외부에서 접근해야 할 때만 `--host 0.0.0.0`을 명시하고, 이때 `--dir`의 모든 파일이 네트워크에 노출됨에 유의) | `file://` 경로, 상대/절대 경로 |
+(위 명령은 각 프레임워크의 일반 문서 기준이며 Cofa에서의 동작은 [가정].)
+
+## 3. `0.0.0.0` 바인딩과 접속 주소
+- `0.0.0.0`은 "모든 인터페이스에서 받는다"는 **바인드 주소**이며 브라우저에 입력하는 주소가 아니다 [검증: `web-probe`가 `0.0.0.0` URL을 `127.0.0.1`로 치환해 점검].
+- `127.0.0.1`/`localhost` 바인딩은 같은 머신(네임스페이스) 안에서만 열린다. 미리보기 프록시가 다른 네임스페이스에서 접근한다면 `0.0.0.0` 바인딩이 필요할 수 있다 [가정].
+- 접속은 플랫폼이 제공하는 미리보기 입력(포트)을 사용한다. 플랫폼 URL 형식을 추측해서 만들지 않는다.
+
+## 4. 증상별 진단 순서
+**빈 화면**
+1. `web-probe`: `server_down`이면 프로세스/포트 문제. `frontend_assets_broken`이면 JS/CSS가 404이거나 HTML로 응답(빌드 안 됨, `base`, SPA 폴백).
+2. 기준선: `python3 -m harness preview-baseline --port <P>` 를 같은 미리보기 경로로 열게 한다. 기준선 표시 + 앱 빈 화면 → 앱 문제(3~5단계). 기준선도 빈 화면 → 미리보기 연결/포트 지정 문제(6단계).
+3. 프로브가 모두 정상이면 브라우저 Console 첫 오류와 Network의 실패 요청을 사용자에게 요청한다(JS 런타임 오류는 HTTP로 보이지 않는다).
+**404**: 요청 URL과 서버 라우트 비교. 하위 경로 배포면 `base`/publicPath. `/api/*`가 HTML(200)이면 프록시/폴백 문제(`web-probe --path`가 보고).
+**프록시/Host 오류(403, "Blocked request")**: `web-probe --host-header <미리보기가 보내는 Host>` 로 거부 재현 → Vite `allowedHosts`/Django `ALLOWED_HOSTS` 등 [Host는 사용자 관찰 필요].
+**CORS**: `web-probe --origin <페이지 origin> --path /api/...` 의 `access_control_allow_origin`. 같은 origin 프록시를 쓰면 필요 없다.
+**HMR/WebSocket**: HTTP 프로브로 확인 불가. 콘솔의 `WebSocket connection failed`를 사용자에게 요청. 개발 서버 HMR 포트/`clientPort` 설정 [가정]; 대안은 빌드 후 정적 서빙.
+
+## 5. 사용자 수동 브라우저 확인 절차
+1. 미리보기를 열고 개발자 도구(F12) → Console: **첫 번째 빨간 오류**의 전문을 복사.
+2. Network: 빨간(실패)·`(blocked)`·HTML로 응답한 JS/API 행의 URL·Status·Content-Type.
+3. 주소창/미리보기에 입력한 정확한 URL 또는 포트 값을 기록.
+4. 새로고침과 하드 새로고침(Ctrl+Shift+R) 결과 비교.
+이 정보가 오면 어느 계층인지 판정한다. 이 절차 없이 "미리보기 해결"을 선언하지 않는다.
+
+## 6. Cofa 관찰 기록 (사용자/공식 문서로 확인된 것만 추가)
+| 항목 | 상태 | 출처/일자 |
+|---|---|---|
+| 미리보기에서 포트를 지정할 수 있음 | 알려짐 | EXAM_START.md |
+| 그 외 모든 Cofa 동작(프록시 규칙, 허용 Host, WebSocket 지원) | **미검증** | — |
+
+## 7. DEV용 체크리스트
+- [ ] 실행 명령과 실제 포트를 로그에서 확인
+- [ ] 바인드 주소 확인(`ss -ltnp` / `web-probe`)
+- [ ] 첫 통합 시 `web-probe` 실행(앱의 실제 `/api` 경로 포함)
+- [ ] 정적 자산·API가 상대 경로/프록시로 호출됨(다른 로컬 포트 하드코딩 없음)
+- [ ] 빈 화면 시 기준선 서버로 플랫폼 연결 분리
+- [ ] 사용자에게 포트 번호와 수동 확인 항목 전달, 결과는 "확인됨/미확인"으로 구분 기록

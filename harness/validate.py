@@ -10,6 +10,15 @@ def validate(root: Path = ROOT) -> list[str]:
     for required in ("AGENTS.md", "README.md", "Makefile", "docs/skills.md"):
         if not (root / required).is_file():
             errors.append(f"missing {required}")
+    from .session import MODES
+    for mode, spec in MODES.items():
+        if not (root / spec["doc"]).is_file():
+            errors.append(f"missing session doc {spec['doc']}")
+        for skill in spec["skills"]:
+            if not (root / ".agents/skills" / skill / "SKILL.md").is_file():
+                errors.append(f"mode {mode}: unknown skill {skill}")
+    if not (root / "docs/preview/cofa-runbook.md").is_file():
+        errors.append("missing docs/preview/cofa-runbook.md")
     for bundle in (root / ".codex", root / "configs/inherited"):
         try:
             config = tomllib.loads((bundle / "config.toml").read_text())

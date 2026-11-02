@@ -16,7 +16,7 @@ For forms, persisted state, async requests, or multi-page flows, read [reference
 1. Discover framework, commands, route/component patterns, and data layer; extend the original application.
 2. Connect one complete user journey with explicit validation, loading/failure states, and clear state ownership.
 3. Keep secrets server-side, validate untrusted data at boundaries, and use existing authentication/persistence where required.
-4. Exercise navigation, submission, reload/persistence, and relevant failures in the running application; run the existing production build.
+4. Run the server at the first integration point (not last) and check port/binding with `web-probe` (see web-runtime-debugging; the harness `docs/preview/cofa-runbook.md` covers restricted previews). Distinguish dev server, production build and served build. Exercise navigation, submission, reload/persistence, and relevant failures in the running application; run the existing production build.
 
 **Output contract:** Working changes, exact launch commands, configuration names without secret values, and journey evidence.
 
