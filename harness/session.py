@@ -157,13 +157,24 @@ def _git(project: Path, *args: str) -> str | None:
 
 
 def fingerprint(project: Path) -> str:
-    """Changes whenever tracked/untracked project content changes; used to mark old verification stale."""
+    """Fingerprint project content, excluding generated state stored inside it."""
+    project = project.resolve()
+    state_root = STATE_ROOT.resolve()
+    # An OPTIMIZE worktree may itself live below STATE_ROOT. Its source files
+    # must still count: exclude state only when its root is inside this project.
+    exclude_state = state_root != project and state_root.is_relative_to(project)
+
+    def is_state(path: Path) -> bool:
+        return exclude_state and path.resolve().is_relative_to(state_root)
+
     h = hashlib.sha256()
     head = _git(project, "rev-parse", "HEAD")
     if head is not None:
         h.update(head.encode())
         h.update((_git(project, "diff", "HEAD") or "").encode())
         for rel in sorted((_git(project, "ls-files", "-o", "--exclude-standard") or "").splitlines()):
+            if is_state(project / rel):
+                continue
             try:
                 st = (project / rel).stat()
                 h.update(f"{rel}:{st.st_size}:{st.st_mtime_ns}".encode())
@@ -172,15 +183,22 @@ def fingerprint(project: Path) -> str:
         return "git:" + h.hexdigest()[:16]
     skip = {".git", "node_modules", ".venv", "venv", "__pycache__"}
     count = 0
-    for path in sorted(project.rglob("*")):
-        if skip & set(path.relative_to(project).parts) or not path.is_file():
-            continue
-        count += 1
+    for directory, directories, files in os.walk(project):
+        parent = Path(directory)
+        directories[:] = sorted(name for name in directories
+                                if name not in skip and not is_state(parent / name))
+        for name in sorted(files):
+            path = parent / name
+            if name in skip or is_state(path) or not path.is_file():
+                continue
+            count += 1
+            if count > 20000:
+                h.update(b"truncated")
+                break
+            st = path.stat()
+            h.update(f"{path.relative_to(project)}:{st.st_size}:{st.st_mtime_ns}".encode())
         if count > 20000:
-            h.update(b"truncated")
             break
-        st = path.stat()
-        h.update(f"{path.relative_to(project)}:{st.st_size}:{st.st_mtime_ns}".encode())
     return "fs:" + h.hexdigest()[:16]
 
 

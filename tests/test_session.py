@@ -336,6 +336,21 @@ class SessionTests(unittest.TestCase):
             finally:
                 session.STATE_ROOT = old
 
+    def test_nested_state_and_reports_do_not_invalidate_verification(self):
+        for use_git in (False, True):
+            with self.subTest(git=use_git), tempfile.TemporaryDirectory() as d:
+                project = make_project(d, git=use_git)
+                session.STATE_ROOT = project / "CodexHarness/.harness/sessions"
+                rec = session.state_add(project, "qa", "qa-result", "product check PASS")
+                shown = session.state_show(project)
+                self.assertEqual(shown["project_fingerprint"], rec["fingerprint"])
+                self.assertNotIn("stale", shown["records"][0])
+                session.state_add(project, "dev", "note", "received QA result")
+                (session.state_dir(project) / "report.md").write_text("local evidence")
+                self.assertNotIn("stale", session.state_show(project)["records"][0])
+                (project / "data.csv").write_text("a,b\n3,4\n")
+                self.assertTrue(session.state_show(project)["records"][0]["stale"])
+
     def test_validate_covers_session_docs(self):
         from harness.validate import validate
         self.assertEqual(validate(), [])
