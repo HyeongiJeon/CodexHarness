@@ -19,7 +19,7 @@ cd /path/to/my-project
 ../CodexHarness/start.sh dev
 ```
 
-명령 끝의 이름만 바꾸면 됩니다. `start.sh`가 Python 3.11+ 실행 파일을 `python3` 또는 `python`에서 자동으로 찾아 사용합니다. 각 전문 세션은 **별도 터미널에서 실행**할 수 있습니다.
+명령 끝의 이름만 바꾸면 됩니다. `start.sh`가 Python 3.11+ 실행 파일을 `python3` 또는 `python`에서 자동으로 찾아 사용합니다. **Windows Git Bash**의 CP949/UTF-8 오류를 피하도록 런처가 Python UTF-8 모드도 자동 설정합니다(Windows 시스템 설정은 변경하지 않음). 각 전문 세션은 **별도 터미널에서 실행**할 수 있습니다.
 
 | 명령 끝 | 하는 일 |
 | --- | --- |

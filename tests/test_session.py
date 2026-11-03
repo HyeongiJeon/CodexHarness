@@ -376,6 +376,19 @@ class SessionTests(unittest.TestCase):
             self.assertEqual(out.returncode, 127)
             self.assertIn("Python 3.11+ not found", out.stderr)
 
+    def test_start_sh_overrides_cp949_for_unicode_project_path(self):
+        with tempfile.TemporaryDirectory() as d:
+            project_root = Path(d) / "한글 프로젝트"
+            project_root.mkdir()
+            project = make_project(str(project_root))
+            env = {**os.environ, "PYTHONUTF8": "0", "PYTHONIOENCODING": "cp949"}
+            out = subprocess.run(["/bin/bash", str(ROOT / "start.sh"), "dev", "--dry-run"],
+                                 cwd=project, env=env, capture_output=True, text=True, encoding="utf-8")
+            self.assertEqual(out.returncode, 0, out.stderr)
+            report = json.loads(out.stdout)
+            self.assertEqual(report["project"], str(project.resolve()))
+            self.assertEqual(report["model"]["model"], "gpt-6.1-sol")
+
 
 class MeasureTests(unittest.TestCase):
     def test_baseline_and_output_change_detection(self):
