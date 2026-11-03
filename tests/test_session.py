@@ -348,6 +348,34 @@ class SessionTests(unittest.TestCase):
             self.assertEqual(out.returncode, 0, out.stderr)
             self.assertEqual(json.loads(out.stdout)["project"], str(project.resolve()))
 
+    def test_start_sh_uses_python_when_python3_is_not_on_path(self):
+        with tempfile.TemporaryDirectory() as d:
+            bin_dir = Path(d) / "bin"
+            bin_dir.mkdir()
+            (bin_dir / "dirname").symlink_to("/usr/bin/dirname")
+            fake_python = bin_dir / "python"
+            fake_python.write_text(
+                '#!/bin/sh\n'
+                'if [ "$1" = "-c" ]; then exit 0; fi\n'
+                'printf "%s\\n" "$@" > "$PYTHON_LAUNCH_LOG"\n'
+            )
+            fake_python.chmod(0o755)
+            log = Path(d) / "launch.txt"
+            env = {**os.environ, "PATH": str(bin_dir), "PYTHON_LAUNCH_LOG": str(log)}
+            out = subprocess.run(["/bin/bash", str(ROOT / "start.sh"), "qa", "--dry-run"],
+                                 cwd=ROOT, env=env, capture_output=True, text=True)
+            self.assertEqual(out.returncode, 0, out.stderr)
+            self.assertEqual(log.read_text().splitlines(), ["-m", "harness", "start", "qa", "--dry-run"])
+
+    def test_start_sh_reports_missing_python_cleanly(self):
+        with tempfile.TemporaryDirectory() as d:
+            (Path(d) / "dirname").symlink_to("/usr/bin/dirname")
+            env = {**os.environ, "PATH": d}
+            out = subprocess.run(["/bin/bash", str(ROOT / "start.sh"), "dev", "--dry-run"],
+                                 cwd=ROOT, env=env, capture_output=True, text=True)
+            self.assertEqual(out.returncode, 127)
+            self.assertIn("Python 3.11+ not found", out.stderr)
+
 
 class MeasureTests(unittest.TestCase):
     def test_baseline_and_output_change_detection(self):
