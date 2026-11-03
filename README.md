@@ -10,7 +10,58 @@ make check
 python3 -m harness launch --dry-run
 ```
 
-**실전 시작:** Codex에 `CodexHarness/EXAM_START.md 읽고 시작해줘.` 한 문장을 입력합니다([EXAM_START.md](EXAM_START.md)). 사전체험은 [START_HERE.md](START_HERE.md)를 사용합니다. 웹 미리보기 진단은 `python3 -m harness web-probe http://127.0.0.1:PORT/ --path /api/...`(localhost HTTP 전용, 브라우저 미사용)입니다.
+## 가장 쉬운 사용법
+
+CodexHarness와 작업할 프로젝트가 **같은 상위 폴더**에 있다면, 작업 프로젝트 폴더에서 시작합니다. 경로가 다르면 `../CodexHarness` 부분만 실제 CodexHarness 경로로 바꾸세요.
+
+```bash
+cd /path/to/my-project
+../CodexHarness/start.sh dev
+```
+
+명령 끝의 이름만 바꾸면 됩니다. 각 전문 세션은 **별도 터미널에서 실행**할 수 있습니다.
+
+| 명령 끝 | 하는 일 |
+| --- | --- |
+| `dev` | 개발·수정 (기본) |
+| `explain` | 기존 코드 쉽게 설명, 읽기 전용 |
+| `optimize` | 속도·알고리즘 최적화 (별도 Git 작업공간) |
+| `qa` | 기능·API·DB 테스트, 오류 보고 |
+| `preview` | 웹 서버·포트·미리보기 오류 진단 |
+
+예를 들어 개발 후 검사를 맡기려면 다른 터미널에서 `../CodexHarness/start.sh qa`를 실행하면 됩니다. 모든 모드의 모델은 **`gpt-6.1-sol`**입니다.
+
+### 세션 간 결과 공유도 말로 요청하면 됩니다
+
+세션의 **대화 내용 전체가 자동 공유되지는 않지만**, 같은 프로젝트의 주요 결정·QA 결함·최적화 결과는 공유 상태(`state`)에 기록하고 다른 세션에서 읽을 수 있습니다.
+
+- QA 채팅: **“검사 결과와 발견한 결함을 공유 상태에 기록해줘.”**
+- DEV 채팅: **“공유 상태를 읽고 QA가 발견한 결함을 정리해줘.”**
+
+직접 기록을 보고 싶다면 작업 프로젝트 폴더에서 `PYTHONPATH=../CodexHarness python3 -m harness state show`를 실행하세요. 세션 간 공유는 **기록된 내용만** 전달하며, 최적화 작업공간의 미병합 결과는 원본 프로젝트에 아직 적용되지 않은 것으로 표시됩니다.
+
+### `--exam`은 언제 붙이나요?
+
+```bash
+# 일반 개발
+../CodexHarness/start.sh dev
+
+# 180분 실전 시험 진행
+../CodexHarness/start.sh dev --exam
+```
+
+| 구분 | `dev` | `dev --exam` |
+| --- | --- | --- |
+| 시작 지침 | `sessions/dev.md` | `EXAM_START.md` |
+| 작업 방식 | 요구사항·계획 설명 → 승인 후 구현 | 시험 환경 확인 → 180분 시간 관리 → 승인 후 단계별 구현 |
+| 별도 기록 | 필요 시 공유 상태 기록 | 시험 후 본인이 설명할 수 있도록 개발 근거·결정·검증 기록 강조 |
+| 모델·역할·Skill | Sol 6.1 / 전문팀 | 동일 |
+
+**차이는 모델이나 권한이 아니라 시작 지침과 시간 관리 방식**입니다. `--exam`은 `dev` 전용이며, 시험 환경의 금지사항(Git push·외부 전송·브라우저 자동화 등)은 플래그와 무관하게 지켜야 합니다. `--exam` 자체가 해당 작업을 기술적으로 차단하는 보안 장치는 아닙니다.
+
+이미 열려 있는 Codex 세션에서 새 런처를 실행할 수 없다면 `CodexHarness/EXAM_START.md 읽고 시작해줘.`라고 요청할 수 있습니다([EXAM_START.md](EXAM_START.md)). 다만 기존 세션에는 새 모델·역할 설정이 소급 적용되지 않습니다. 사전체험은 [START_HERE.md](START_HERE.md)를 참고하세요.
+
+웹 미리보기 진단 명령: `python3 -m harness web-probe http://127.0.0.1:PORT/ --path /api/...` (CodexHarness 폴더에서 실행; localhost HTTP 전용, 브라우저 미사용).
 
 `gpt-6.1-sol`은 이 준비 환경에서 실행 확인한 ID입니다. 시험에서도 모델은 `gpt-6.1-sol` 하나뿐이며, 접근이 확인되지 않으면 다른 모델로 대체하지 말고 오류로 보고합니다. Codex나 Python 설치·업데이트 스크립트는 포함하지 않습니다. `make`가 없으면 Makefile에 적힌 Python 명령을 직접 실행합니다.
 
