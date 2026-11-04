@@ -7,6 +7,7 @@ claims a configuration applies to an already running session.
 """
 from __future__ import annotations
 
+import filecmp
 import hashlib
 import json
 import os
@@ -156,8 +157,22 @@ def _git(project: Path, *args: str) -> str | None:
     return p.stdout if p.returncode == 0 else None
 
 
+def _is_harness_skill_copy(project: Path, path: Path) -> bool:
+    """True only for a file byte-identical to its bundled counterpart in <project>/.agents/skills.
+
+    Files the user wrote or edited differ from the bundle (or have no counterpart), so they still count.
+    """
+    if not path.is_relative_to(project / ".agents/skills") or path.is_symlink():
+        return False
+    bundled = ROOT / ".agents/skills" / path.relative_to(project / ".agents/skills")
+    try:
+        return bundled.is_file() and filecmp.cmp(path, bundled, shallow=False)
+    except OSError:
+        return False
+
+
 def fingerprint(project: Path) -> str:
-    """Fingerprint project content, excluding generated state stored inside it."""
+    """Fingerprint project content, excluding generated state and unmodified harness skills stored inside it."""
     project = project.resolve()
     state_root = STATE_ROOT.resolve()
     # An OPTIMIZE worktree may itself live below STATE_ROOT. Its source files
@@ -167,13 +182,17 @@ def fingerprint(project: Path) -> str:
     def is_state(path: Path) -> bool:
         return exclude_state and path.resolve().is_relative_to(state_root)
 
+    def is_generated(path: Path) -> bool:
+        return is_state(path) or _is_harness_skill_copy(project, path)
+
     h = hashlib.sha256()
     head = _git(project, "rev-parse", "HEAD")
     if head is not None:
         h.update(head.encode())
         h.update((_git(project, "diff", "HEAD") or "").encode())
-        for rel in sorted((_git(project, "ls-files", "-o", "--exclude-standard") or "").splitlines()):
-            if is_state(project / rel):
+        # -z: without it git quotes non-ASCII paths, which then fail to stat and silently drop out
+        for rel in sorted(filter(None, (_git(project, "ls-files", "-z", "-o", "--exclude-standard") or "").split("\0"))):
+            if is_generated(project / rel):
                 continue
             try:
                 st = (project / rel).stat()
@@ -189,7 +208,7 @@ def fingerprint(project: Path) -> str:
                                 if name not in skip and not is_state(parent / name))
         for name in sorted(files):
             path = parent / name
-            if name in skip or is_state(path) or not path.is_file():
+            if name in skip or is_generated(path) or not path.is_file():
                 continue
             count += 1
             if count > 20000:
@@ -285,7 +304,7 @@ def state_show(project: Path, kind: str | None = None, limit: int = 50) -> dict:
                                                "it is not part of the project until committed and merged")
             records.append(rec)
     return {"project": str(project), "project_fingerprint": fingerprint(project), "records": records[-limit:],
-            "note": "stale: the record's own workspace changed after it was written (gitignored files are not fingerprinted). not_integrated: separate worktree result not yet merged into the project HEAD. decision/change/note records are never marked stale"}
+            "note": "stale: the record's own workspace changed after it was written (gitignored files and unmodified harness-installed skill copies are not fingerprinted). not_integrated: separate worktree result not yet merged into the project HEAD. decision/change/note records are never marked stale"}
 
 
 def ensure_worktree(project: Path, dry_run: bool) -> dict:
@@ -351,6 +370,7 @@ def build_prompt(mode: str, project: Path, workdir: Path, exam: bool) -> str:
     extra += " state 명령은 `--project " + str(project) + "` 없이도 동작하나 필요하면 명시하라." if workdir != project else ""
     return (f"CodexHarness 세션 모드 `{mode}`. 먼저 {doc} 를 읽고 그 지침을 따르라.{extra} "
             f"하네스 경로: {ROOT} (하네스 명령은 `PYTHONPATH={ROOT} python3 -m harness ...`). "
+            f"Skill의 Related skills 링크 대상이 프로젝트에 없으면 필요할 때 {ROOT / '.agents/skills'}/<이름>/SKILL.md 를 직접 읽어라. "
             "프로젝트 AGENTS.md와 과제 지침, 시험 제한이 항상 우선한다. 사용자 승인 없이 구현을 시작하지 말라.")
 
 

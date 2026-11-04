@@ -1,28 +1,57 @@
 from pathlib import Path
+import os
 import re
 import tempfile
 import unittest
 
 from harness.install import install_skills
+from harness.roles import ROOT
+from harness.session import MODES
 
 
 class IntegrationTests(unittest.TestCase):
-    def test_selective_install_includes_transitive_skill_links(self):
+    def test_selective_install_copies_only_requested_skills(self):
         with tempfile.TemporaryDirectory() as directory:
             project = Path(directory)
             result = install_skills(project, ["completion-verification"])
             target = project / ".agents/skills"
-            self.assertTrue((target / "final-delivery-verification/SKILL.md").is_file())
-            self.assertTrue((target / "time-budget-management/SKILL.md").is_file())
-            self.assertEqual(len(result["installed"]), len(set(result["installed"])))
-            for path in target.rglob("*.md"):
-                for ref in re.findall(r"\]\(([^)]+)\)", path.read_text()):
-                    if "://" not in ref and not ref.startswith("#"):
-                        self.assertTrue((path.parent / ref.split("#")[0]).exists(), f"{path}: {ref}")
+            self.assertEqual(sorted(p.name for p in target.iterdir()), ["completion-verification"])
+            self.assertEqual(result, {"installed": ["completion-verification"], "preserved_existing": []})
             again = install_skills(project, ["completion-verification"])
-            self.assertEqual(again["installed"], [])
+            self.assertEqual(again, {"installed": [], "preserved_existing": ["completion-verification"]})
 
-    def test_reinstall_repairs_missing_dependencies_without_overwriting_skill(self):
+    def test_every_mode_installs_exactly_its_requested_skills(self):
+        for mode in ("dev", "optimize", "qa", "preview"):
+            with self.subTest(mode=mode), tempfile.TemporaryDirectory() as directory:
+                project = Path(directory)
+                names = MODES[mode]["skills"]
+                result = install_skills(project, names)
+                self.assertEqual(result["installed"], names)
+                self.assertEqual(sorted(p.name for p in (project / ".agents/skills").iterdir()), sorted(names))
+
+    def test_installed_skill_links_resolve_within_itself_or_to_the_harness(self):
+        for name in sorted(p.name for p in (ROOT / ".agents/skills").iterdir()):
+            with self.subTest(skill=name), tempfile.TemporaryDirectory() as directory:
+                project = Path(directory)
+                install_skills(project, [name])
+                installed = project / ".agents/skills" / name
+                for path in installed.rglob("*.md"):
+                    for ref in re.findall(r"\]\(([^)]+)\)", path.read_text()):
+                        if "://" in ref or ref.startswith("#"):
+                            continue
+                        relative = os.path.normpath(path.parent.relative_to(installed) / ref.split("#")[0])
+                        # Own references ship with the skill; a related skill stays readable in the harness.
+                        base = ROOT / ".agents/skills" / name if relative.startswith("..") else installed
+                        self.assertTrue((base / relative).exists(), f"{path}: {ref}")
+
+    def test_empty_selection_installs_nothing_but_omitted_selection_installs_all(self):
+        with tempfile.TemporaryDirectory() as directory:
+            project = Path(directory)
+            self.assertEqual(install_skills(project, [])["installed"], [])
+            self.assertEqual(list((project / ".agents/skills").iterdir()), [])
+            self.assertEqual(len(install_skills(project)["installed"]), len(list((ROOT / ".agents/skills").glob("*/SKILL.md"))))
+
+    def test_existing_skill_is_preserved_and_its_links_do_not_pull_in_others(self):
         with tempfile.TemporaryDirectory() as directory:
             project = Path(directory)
             existing = project / ".agents/skills/completion-verification"
@@ -30,9 +59,9 @@ class IntegrationTests(unittest.TestCase):
             original = "Custom instructions\n[handoff](../final-delivery-verification/SKILL.md)\n"
             (existing / "SKILL.md").write_text(original)
             result = install_skills(project, ["completion-verification"])
-            self.assertIn("completion-verification", result["preserved_existing"])
+            self.assertEqual(result, {"installed": [], "preserved_existing": ["completion-verification"]})
             self.assertEqual((existing / "SKILL.md").read_text(), original)
-            self.assertTrue((existing.parent / "final-delivery-verification/SKILL.md").is_file())
+            self.assertFalse((existing.parent / "final-delivery-verification").exists())
 
     def test_original_instructions_and_existing_skills_are_preserved(self):
         with tempfile.TemporaryDirectory() as directory:

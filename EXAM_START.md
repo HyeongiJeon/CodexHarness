@@ -24,7 +24,7 @@ Git push 금지, 외부 서비스로 과제 데이터 전송 금지, 브라우�
 2. CodexHarness 경로에서 `PYTHONPATH=<CodexHarness 절대경로> python3 -m harness doctor`, `PYTHONPATH=<CodexHarness 절대경로> python3 -m harness validate`를 실행한다. 대량 설치·전체 벤치마크·프레임워크 재구축은 하지 않는다.
 3. 과제에 필요한 Skill만 연결한다(기존 파일은 덮어쓰지 않음). 웹 과제 예:
    `PYTHONPATH=<CodexHarness 절대경로> python3 -m harness install-skills --project <과제 루트> --skill web-application-development --skill web-runtime-debugging --skill web-flow-verification --skill web-ui-patterns --skill frontend-design --skill rapid-mvp-development --skill parallel-implementation --skill completion-verification --skill decision-and-evidence-recording`
-   API는 `api-backend-development`, 대시보드는 `visualization-and-dashboard`, 데이터는 `data-processing`, 문서·다중 문서는 해당 Skill을 추가한다. **새로 설치한 Skill은 새 세션에서 발견된다.** 현재 세션에 소급 적용되지 않으면 해당 `SKILL.md`를 직접 읽어 따른다.
+   API는 `api-backend-development`, 대시보드는 `visualization-and-dashboard`, 데이터는 `data-processing`, 문서·다중 문서는 해당 Skill을 추가한다. **새로 설치한 Skill은 새 세션에서 발견된다.** 현재 세션에 소급 적용되지 않으면 해당 `SKILL.md`를 직접 읽어 따른다. Skill의 Related skills 링크는 자동 설치되지 않으므로, 대상이 과제 프로젝트에 없으면 필요할 때 `<CodexHarness 절대경로>/.agents/skills/<이름>/SKILL.md`를 직접 읽는다.
 4. 위임 수단을 확인한다. 이 세션에 네이티브 서브에이전트 도구가 있으면 사용한다. 사용자가 역할 설정으로 시작하려면 알려 준다:
    `PYTHONPATH=<CodexHarness 절대경로> python3 -m harness launch --project <과제 루트> --dry-run` (모든 메인·서브에이전트가 `gpt-6.1-sol` 하나로 고정되며 모델 선택·라우팅 옵션은 없다). 이미 실행 중인 세션에는 소급 적용되지 않으며, 설정 파일을 읽은 것을 에이전트 가동의 증거로 쓰지 않는다. 역할 지정이 불가하면 `PYTHONPATH=<CodexHarness 절대경로> python3 -m harness role <이름>` 출력을 새 에이전트(`gpt-6.1-sol`) 프롬프트로 전달하고 그 대체 경로를 기록한다. `gpt-6.1-sol`을 쓸 수 없으면 다른 모델로 대체하지 말고 오류를 그대로 보고한다. 서브에이전트가 금지·불가이면 순차로 진행하고 그 한계를 보고한다.
 

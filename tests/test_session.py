@@ -8,8 +8,10 @@ import tempfile
 import threading
 import unittest
 from pathlib import Path
+from unittest import mock
 
 from harness import session
+from harness.install import install_skills
 from harness.measure import measure
 from harness.roles import ROOT, ROLES
 
@@ -340,16 +342,90 @@ class SessionTests(unittest.TestCase):
         for use_git in (False, True):
             with self.subTest(git=use_git), tempfile.TemporaryDirectory() as d:
                 project = make_project(d, git=use_git)
-                session.STATE_ROOT = project / "CodexHarness/.harness/sessions"
-                rec = session.state_add(project, "qa", "qa-result", "product check PASS")
-                shown = session.state_show(project)
-                self.assertEqual(shown["project_fingerprint"], rec["fingerprint"])
-                self.assertNotIn("stale", shown["records"][0])
-                session.state_add(project, "dev", "note", "received QA result")
-                (session.state_dir(project) / "report.md").write_text("local evidence")
-                self.assertNotIn("stale", session.state_show(project)["records"][0])
-                (project / "data.csv").write_text("a,b\n3,4\n")
-                self.assertTrue(session.state_show(project)["records"][0]["stale"])
+                with mock.patch.object(session, "STATE_ROOT", project / "CodexHarness/.harness/sessions"):
+                    rec = session.state_add(project, "qa", "qa-result", "product check PASS")
+                    shown = session.state_show(project)
+                    self.assertEqual(shown["project_fingerprint"], rec["fingerprint"])
+                    self.assertNotIn("stale", shown["records"][0])
+                    session.state_add(project, "dev", "note", "received QA result")
+                    (session.state_dir(project) / "report.md").write_text("local evidence")
+                    self.assertNotIn("stale", session.state_show(project)["records"][0])
+                    (project / "data.csv").write_text("a,b\n3,4\n")
+                    self.assertTrue(session.state_show(project)["records"][0]["stale"])
+
+    def test_nested_state_test_restores_state_root_even_on_failure(self):
+        # Called directly, so neither setUp nor addCleanup can do the restoring for it.
+        name = "test_nested_state_and_reports_do_not_invalidate_verification"
+        before = session.STATE_ROOT
+        getattr(SessionTests(name), name)()
+        self.assertIs(session.STATE_ROOT, before)
+        with mock.patch.object(session, "state_add", side_effect=RuntimeError("boom")):
+            with self.assertRaises(RuntimeError):
+                getattr(SessionTests(name), name)()
+        self.assertIs(session.STATE_ROOT, before)
+
+    def qa_record(self, project):
+        return next(r for r in session.state_show(project)["records"] if r["kind"] == "qa-result")
+
+    def test_optimize_skill_install_keeps_qa_result_fresh_until_product_changes(self):
+        for use_git in (False, True):
+            with self.subTest(git=use_git), tempfile.TemporaryDirectory() as d:
+                project = make_project(d, git=use_git)
+                self.prep("dev", project, dry_run=False)
+                session.state_add(project, "qa", "qa-result", "login PASS")
+                optimized = self.prep("optimize", project, dry_run=False, in_place=not use_git)
+                # git: OPTIMIZE installs into its worktree, so also install into the live project directly
+                install_skills(project, ["performance-optimization", "task-prioritization"])
+                self.assertEqual(optimized["isolation"]["isolated"], use_git)
+                self.assertTrue((project / ".agents/skills/performance-optimization/SKILL.md").is_file())
+                self.assertNotIn("stale", self.qa_record(project))
+                session.state_add(project, "qa", "note", "shared state grows")  # scenario: shared state file
+                (session.state_dir(project) / "report.md").write_text("evidence")
+                self.assertNotIn("stale", self.qa_record(project))
+                (project / "app.py").write_text("x=1\n")
+                self.assertTrue(self.qa_record(project)["stale"])
+                if use_git:
+                    subprocess.run(["git", "worktree", "prune"], cwd=project, capture_output=True)
+
+    def test_user_files_under_agents_still_invalidate_verification(self):
+        def add_new_skill(project, skills):
+            (skills / "mine").mkdir()
+            (skills / "mine/SKILL.md").write_text("mine")
+
+        def edit_installed_skill(project, skills):
+            with (skills / "completion-verification/SKILL.md").open("a") as f:
+                f.write("\nmy rule\n")
+
+        def add_file_inside_installed_skill(project, skills):
+            (skills / "completion-verification/notes.md").write_text("notes")
+
+        def edit_preserved_user_skill(project, skills):
+            (skills / "requirement-discovery/SKILL.md").write_text("mine v2")
+
+        def add_other_agents_file(project, skills):
+            (project / ".agents/notes.md").write_text("notes")
+
+        for change in (add_new_skill, edit_installed_skill, add_file_inside_installed_skill,
+                       edit_preserved_user_skill, add_other_agents_file):
+            for use_git in (False, True):
+                with self.subTest(change=change.__name__, git=use_git), tempfile.TemporaryDirectory() as d:
+                    project = make_project(d, git=use_git)
+                    skills = project / ".agents/skills"
+                    (skills / "requirement-discovery").mkdir(parents=True)
+                    (skills / "requirement-discovery/SKILL.md").write_text("mine")
+                    install_skills(project, ["completion-verification", "requirement-discovery"])
+                    self.assertEqual((skills / "requirement-discovery/SKILL.md").read_text(), "mine")
+                    session.state_add(project, "qa", "qa-result", "PASS")
+                    self.assertNotIn("stale", self.qa_record(project))
+                    change(project, skills)
+                    self.assertTrue(self.qa_record(project)["stale"])
+
+    def test_untracked_non_ascii_product_file_invalidates_verification(self):
+        with tempfile.TemporaryDirectory() as d:
+            project = make_project(d)
+            session.state_add(project, "qa", "qa-result", "PASS")
+            (project / "한글 기능.py").write_text("x=1")
+            self.assertTrue(self.qa_record(project)["stale"])
 
     def test_validate_covers_session_docs(self):
         from harness.validate import validate

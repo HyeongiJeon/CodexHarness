@@ -120,7 +120,7 @@ Codex가 **시작되기 전에** 프로젝트 탐지(`--project` 또는 현재 g
 | `qa` | QA Lead(기존 qa/data/reviewer 재사용), PASS/FAIL/UNVERIFIED 보고(`templates/qa-report.md`) | 제품 코드 비수정은 지침뿐 |
 | `preview` | 웹/미리보기 계층 진단, `preview-baseline`, [Cofa 런북](docs/preview/cofa-runbook.md) | 지침 |
 
-세션 공유 기록은 하네스의 `.harness/sessions/`(또는 `HARNESS_STATE_ROOT`)에 `harness state add|show`로 남기며, 기록마다 작업공간(worktree·브랜치·커밋)을 저장한다. 상태 폴더가 프로젝트 내부에 있어도 Git 추적 대상이 아닌 생성 상태 파일과 보고서는 검증 지문에서 제외하므로, 기록만 추가해서 결과가 `stale`로 바뀌지는 않는다. 그 작업공간이 기록 이후 바뀌면 `stale`, 별도 worktree 결과가 프로젝트에 병합되지 않았으면 `not_integrated`로 따로 표시한다. 추가 CLI: `measure`(반복 시간·최대 RSS·출력 해시 비교), `data sqlite`(읽기 전용 스키마·정합성·SELECT), `data profile`의 수치 통계·이상치 후보·중복, `web-probe --host-header/--origin`과 바인드 주소 보고.
+세션 공유 기록은 하네스의 `.harness/sessions/`(또는 `HARNESS_STATE_ROOT`)에 `harness state add|show`로 남기며, 기록마다 작업공간(worktree·브랜치·커밋)을 저장한다. 상태 폴더가 프로젝트 내부에 있어도 Git 추적 대상이 아닌 생성 상태 파일과 보고서는 검증 지문에서 제외하므로, 기록만 추가해서 결과가 `stale`로 바뀌지는 않는다. 하네스가 설치해 번들과 내용이 동일한 Git 미추적 Skill 파일도 지문에서 제외하므로 Skill 추가 설치만으로는 `stale`이 되지 않으며, 사용자가 작성·수정한 `.agents/` 파일과 커밋된 변경은 계속 감지한다. 그 작업공간이 기록 이후 바뀌면 `stale`, 별도 worktree 결과가 프로젝트에 병합되지 않았으면 `not_integrated`로 따로 표시한다. 추가 CLI: `measure`(반복 시간·최대 RSS·출력 해시 비교), `data sqlite`(읽기 전용 스키마·정합성·SELECT), `data profile`의 수치 통계·이상치 후보·중복, `web-probe --host-header/--origin`과 바인드 주소 보고.
 
 ## 기존 과제 프로젝트에서 사용
 
@@ -133,7 +133,7 @@ python3 -m harness launch --project /path/to/assignment --dry-run
 python3 -m harness launch --project /path/to/assignment
 ```
 
-`install-skills`는 동명 스킬을 보존하고 결과를 출력합니다. 선택한 스킬의 번들 Markdown이 참조하는 다른 스킬도 재귀적으로 설치하며, 추가 대상은 `dependencies`에 표시합니다. 이전 설치에서 참고 스킬이 빠졌다면 같은 명령을 다시 실행해 기존 파일을 덮어쓰지 않고 보완할 수 있습니다. 새 세션에서 Skill 발견을 확인하고 리드 프롬프트를 원래 과제 지침에 맞게 전달합니다. 다른 프로젝트는 하네스 경로의 Skill을 자동 발견하지 않습니다. 역할 파일에서 모델을 지정할 수 없는 환경은 `role NAME`으로 프롬프트만 출력해 제공된 새 에이전트에 전달합니다. 서브에이전트도 없으면 순차 수행하며 독립 검토 제한을 기록합니다.
+`install-skills`는 동명 스킬을 보존하고 결과를 출력합니다. 요청한 스킬만 복사하며 실제 복사한 항목은 `installed`, 보존한 항목은 `preserved_existing`에 표시합니다. 스킬의 `Related skills` 링크는 참고용이라 자동 설치하지 않으며, 대상이 프로젝트에 없으면 하네스의 `.agents/skills/<이름>/SKILL.md`를 필요할 때 직접 읽습니다. 새 세션에서 Skill 발견을 확인하고 리드 프롬프트를 원래 과제 지침에 맞게 전달합니다. 다른 프로젝트는 하네스 경로의 Skill을 자동 발견하지 않습니다. 역할 파일에서 모델을 지정할 수 없는 환경은 `role NAME`으로 프롬프트만 출력해 제공된 새 에이전트에 전달합니다. 서브에이전트도 없으면 순차 수행하며 독립 검토 제한을 기록합니다.
 
 `launch`는 체크인된 `.codex/` 번들(모든 역할 `gpt-6.1-sol`)을 절대 경로 `-c` 인자로 전달하고 `-m gpt-6.1-sol`을 명시한다. 별도 번들은 `configure NEW_DIRECTORY`로 만들고 `launch --bundle NEW_DIRECTORY`로 선택하며, `gpt-6.1-sol` 이외 모델이 들어 있으면 거부한다. 기존 번들은 덮어쓰지 않는다. 실제 모델은 로그로 확인해야 한다.
 
